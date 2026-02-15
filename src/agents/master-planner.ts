@@ -1,9 +1,11 @@
 /**
  * Master planner agent — plans each day's activities using Claude Sonnet.
- * Uses the Claude Agent SDK to generate a DayPlan from narrative context and world state.
+ * Uses the Anthropic SDK directly for structured JSON output.
+ *
+ * Receives a rolling multi-day summary to maintain narrative continuity.
  */
 
-import { query } from "@anthropic-ai/claude-agent-sdk";
+import Anthropic from "@anthropic-ai/sdk";
 import type { Config } from "../config.js";
 import type { DayPlan, Activity, NarrativeBeat, PersonaId } from "../types/simulation.js";
 import type { SprintDefinition } from "../narrative/sprint-calendar.js";
@@ -23,7 +25,7 @@ that team member.
 - tammy: HR/Office Manager. Perfectly formatted tickets. Operations. Apocalypse cornbread.
 - sasha: Product Manager. Manages Jira board, sprints, roadmap. Diplomatic. Imposter syndrome.
 - marcus: Dev Lead. Reviews every PR. Architecture decisions. Thoughtful, patient, occasionally overwhelmed.
-- cooper: Frontend Dev. Self-taught, chaotic, talented. "stuff" commit messages. Ages 22.
+- cooper: Frontend Dev. Self-taught, chaotic, talented. "stuff" commit messages. Age 22.
 - priya: Backend Dev. Former IT support, learning fast. "Things I Learned This Week" posts.
 - raj: Full-Stack Dev. Former CS student. Pushes for "proper" practices. Tension with Cooper.
 - dana: Mobile Dev/Designer. Quiet. Communicates through annotated screenshots.
@@ -38,6 +40,7 @@ that team member.
 - People have different active hours (Cooper: late starts, Chad: 2AM ideas, TK: early bird).
 - Some days are heavy on certain activity types (sprint planning day = lots of ceremony).
 - Support tickets arrive irregularly — some days TK is slammed, some days are quiet.
+- Activities should build on what happened in previous days. Use the running summary to maintain continuity.
 
 ## Activity Types
 - create_ticket: Create a new Jira issue (epic, story, task, bug, sub-task)
@@ -84,10 +87,11 @@ export async function planDay(
   sprintDay: number | null,
   narrativeBeats: NarrativeBeat[],
   stateSummary: string,
-  yesterdaySummary: string,
+  rollingSummary: string,
   config: Config,
   tokenTracker: TokenTracker
 ): Promise<PlannerResult> {
+  const client = new Anthropic({ apiKey: config.anthropicApiKey });
   const prompt = buildPlannerPrompt(
     date,
     dayOfWeek,
@@ -95,33 +99,18 @@ export async function planDay(
     sprintDay,
     narrativeBeats,
     stateSummary,
-    yesterdaySummary
+    rollingSummary
   );
 
-  let responseText = "";
-  let inputTokens = 0;
-  let outputTokens = 0;
+  const response = await client.messages.create({
+    model: config.plannerModel,
+    max_tokens: 4096,
+    system: SYSTEM_PROMPT,
+    messages: [{ role: "user", content: prompt }],
+  });
 
-  for await (const message of query({
-    prompt,
-    options: {
-      systemPrompt: SYSTEM_PROMPT,
-      model: config.plannerModel,
-      permissionMode: "bypassPermissions",
-      allowedTools: [], // No tools needed — pure text generation
-      maxTurns: 1,
-    },
-  })) {
-    if ("result" in message && typeof message.result === "string") {
-      responseText = message.result;
-    }
-    // Capture token usage from the message stream
-    if ("usage" in message && message.usage) {
-      const usage = message.usage as { input_tokens?: number; output_tokens?: number };
-      inputTokens += usage.input_tokens || 0;
-      outputTokens += usage.output_tokens || 0;
-    }
-  }
+  const inputTokens = response.usage.input_tokens;
+  const outputTokens = response.usage.output_tokens;
 
   tokenTracker.record({
     inputTokens,
@@ -130,7 +119,14 @@ export async function planDay(
     model: config.plannerModel,
   });
 
-  // Parse the JSON response
+  // Extract text from the response
+  let responseText = "";
+  for (const block of response.content) {
+    if (block.type === "text") {
+      responseText += block.text;
+    }
+  }
+
   const activities = parseActivities(responseText, date);
 
   const dayPlan: DayPlan = {
@@ -152,7 +148,7 @@ function buildPlannerPrompt(
   sprintDay: number | null,
   narrativeBeats: NarrativeBeat[],
   stateSummary: string,
-  yesterdaySummary: string
+  rollingSummary: string
 ): string {
   const lines: string[] = [];
 
@@ -168,8 +164,6 @@ function buildPlannerPrompt(
     }
     if (sprintDay === 12) {
       lines.push("**Sprint review day.** Include sprint review/demo activities.");
-    }
-    if (sprintDay === 12) {
       lines.push("**Sprint retro day.** Include retrospective activities.");
     }
     lines.push("");
@@ -184,20 +178,20 @@ function buildPlannerPrompt(
     lines.push("");
   }
 
-  lines.push(stateSummary);
-  lines.push("");
-
-  if (yesterdaySummary) {
-    lines.push("## Yesterday's Summary");
-    lines.push(yesterdaySummary);
+  if (rollingSummary) {
+    lines.push("## Recent Days Summary");
+    lines.push("Use this to maintain continuity — build on what happened previously.");
+    lines.push(rollingSummary);
+    lines.push("");
   }
+
+  lines.push(stateSummary);
 
   return lines.join("\n");
 }
 
 function parseActivities(responseText: string, date: string): Activity[] {
   try {
-    // Try to extract JSON from the response (handle potential markdown wrapping)
     let jsonStr = responseText.trim();
     if (jsonStr.startsWith("```")) {
       jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
@@ -217,7 +211,6 @@ function parseActivities(responseText: string, date: string): Activity[] {
   } catch (err) {
     console.error(`Failed to parse master planner response for ${date}:`, err);
     console.error("Response was:", responseText.substring(0, 500));
-    // Return a minimal fallback day
     return [
       {
         time: "09:00",

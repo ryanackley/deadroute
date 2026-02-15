@@ -232,13 +232,9 @@ export async function executeReactionConversation(
     // If no comment was generated, the persona chose not to respond
     if (result.addedComments.length === 0) break;
 
-    // After round 1+, add the original author as potential responder
+    // After round 1+, add the assignee as potential responder
     const ticket = state.tickets[reaction.targetKey];
     if (ticket?.assignee) participants.add(ticket.assignee as PersonaId);
-    const reporter = Object.values(state.tickets).find(
-      (t) => t.key === reaction.targetKey
-    );
-    if (reporter) participants.add(reporter.key.split("-")[0] as PersonaId); // This is wrong, fix below
   }
 
   return {

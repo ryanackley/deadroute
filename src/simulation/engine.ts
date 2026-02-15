@@ -4,10 +4,11 @@
  * For each working day:
  * 1. Update sprint context
  * 2. Get narrative beats
- * 3. Call master planner → day plan
+ * 3. Call master planner → day plan (with rolling multi-day summary)
  * 4. Execute each activity via persona agents
  * 5. Run reaction pass
- * 6. Save state, report tokens
+ * 6. Capture persona day summaries into rolling summary
+ * 7. Save state, report tokens
  */
 
 import { addDays, format, isWeekend, parseISO } from "date-fns";
@@ -35,6 +36,9 @@ import { planDay } from "../agents/master-planner.js";
 import { executePersonaActivity } from "../agents/persona-agent.js";
 import { getPersona } from "../personas/profiles.js";
 import { identifyReactions, executeReactionConversation } from "./reactions.js";
+
+/** How many recent days to include in the rolling summary for the master planner. */
+const ROLLING_SUMMARY_DAYS = 5;
 
 export interface EngineOptions {
   /** Start from a specific day number (1-based, for resuming) */
@@ -72,7 +76,9 @@ export async function runSimulation(config: Config, options: EngineOptions = {})
   const concurrencyLimit = pLimit(config.maxConcurrentAgents);
   let dayNumber = 0;
   let currentDate = parseISO(config.startDate);
-  let yesterdaySummary = "";
+
+  // Rolling summary: keeps the last N days of summaries for narrative continuity
+  const recentDaySummaries: { date: string; summary: string }[] = [];
 
   // Advance to start day if resuming
   const startFromDay = options.fromDay || 1;
@@ -121,6 +127,8 @@ export async function runSimulation(config: Config, options: EngineOptions = {})
 
     // === PHASE 1: PLAN THE DAY ===
     const stateSummary = stateManager.buildStateSummary();
+    const rollingSummary = buildRollingSummary(recentDaySummaries);
+
     const planResult = await planDay(
       dateStr,
       dayOfWeek,
@@ -128,7 +136,7 @@ export async function runSimulation(config: Config, options: EngineOptions = {})
       sprintDay,
       weekBeats,
       stateSummary,
-      yesterdaySummary,
+      rollingSummary,
       config,
       tokenTracker
     );
@@ -154,6 +162,7 @@ export async function runSimulation(config: Config, options: EngineOptions = {})
     const dayModifiedKeys: string[] = [];
     const dayNewPages: ConfluencePage[] = [];
     const activitySummaries: string[] = [];
+    const personaDaySummaries: string[] = [];
 
     for (const activity of dayPlan.activities) {
       try {
@@ -173,6 +182,11 @@ export async function runSimulation(config: Config, options: EngineOptions = {})
         dayModifiedKeys.push(...result.modifiedKeys);
         dayNewPages.push(...result.newPages);
         activitySummaries.push(result.summary);
+
+        // Capture persona day summaries for the rolling summary
+        if (result.daySummary) {
+          personaDaySummaries.push(result.daySummary);
+        }
 
         console.log(chalk.dim(`    ${activity.time} [${activity.persona}] ${result.summary}`));
       } catch (err) {
@@ -224,12 +238,27 @@ export async function runSimulation(config: Config, options: EngineOptions = {})
     }
 
     // === PHASE 4: END OF DAY ===
-    yesterdaySummary = buildDaySummary(activitySummaries, dayNewIssues, dayNewPages);
-    const daySummary = tokenTracker.endDay();
+    // Build day summary and add to rolling window
+    const daySummaryText = buildDaySummary(
+      dateStr,
+      dayOfWeek,
+      activitySummaries,
+      dayNewIssues,
+      dayNewPages,
+      personaDaySummaries
+    );
+    recentDaySummaries.push({ date: dateStr, summary: daySummaryText });
+
+    // Keep only the most recent N days
+    while (recentDaySummaries.length > ROLLING_SUMMARY_DAYS) {
+      recentDaySummaries.shift();
+    }
+
+    const tokenDaySummary = tokenTracker.endDay();
     await stateManager.save();
     await tokenTracker.save();
 
-    console.log(chalk.green(`  ✓ ${tokenTracker.formatDailySummary(daySummary)}`));
+    console.log(chalk.green(`  ✓ ${tokenTracker.formatDailySummary(tokenDaySummary)}`));
     console.log(chalk.dim(`  ${tokenTracker.formatRunningTotal()}`));
 
     currentDate = addDays(currentDate, 1);
@@ -257,11 +286,14 @@ export async function runSimulation(config: Config, options: EngineOptions = {})
   }
 }
 
+// ─── Activity Execution ─────────────────────────────────────────────
+
 interface ActivityResult {
   newIssues: JiraIssue[];
   modifiedKeys: string[];
   newPages: ConfluencePage[];
   summary: string;
+  daySummary: string;
 }
 
 async function executeActivity(
@@ -297,6 +329,7 @@ async function executeActivity(
     modifiedKeys: [],
     newPages: [],
     summary: "",
+    daySummary: result.daySummary,
   };
 
   // Process created issues
@@ -371,20 +404,63 @@ async function executeActivity(
   return actResult;
 }
 
+// ─── Summary Builders ───────────────────────────────────────────────
+
+/**
+ * Build a rolling multi-day summary from recent days for the master planner.
+ * This gives narrative continuity — the planner sees what happened over the
+ * last several days, not just yesterday.
+ */
+function buildRollingSummary(recentDays: { date: string; summary: string }[]): string {
+  if (recentDays.length === 0) return "";
+
+  const lines = ["Here is a summary of the last few days of work at DeadRoute:"];
+
+  for (const day of recentDays) {
+    lines.push("");
+    lines.push(`### ${day.date}`);
+    lines.push(day.summary);
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Build a comprehensive day summary that includes both activity metrics
+ * and persona-written summaries. This goes into the rolling summary window.
+ */
 function buildDaySummary(
+  date: string,
+  dayOfWeek: string,
   activities: string[],
   newIssues: JiraIssue[],
-  newPages: ConfluencePage[]
+  newPages: ConfluencePage[],
+  personaSummaries: string[]
 ): string {
-  const lines = ["Yesterday's activities:"];
+  const lines: string[] = [];
+
+  // Activity overview
+  lines.push(`${dayOfWeek} activities:`);
   for (const a of activities.slice(0, 20)) {
     lines.push(`- ${a}`);
   }
+
   if (newIssues.length > 0) {
     lines.push(`\nNew tickets: ${newIssues.map((i) => `${i.key}: ${i.summary}`).join("; ")}`);
   }
   if (newPages.length > 0) {
     lines.push(`\nNew pages: ${newPages.map((p) => p.title).join("; ")}`);
   }
+
+  // Include persona-written day summaries for richer narrative context
+  if (personaSummaries.length > 0) {
+    lines.push("\nTeam highlights:");
+    for (const summary of personaSummaries.slice(0, 5)) {
+      // Truncate each persona summary to keep the rolling context manageable
+      const truncated = summary.length > 300 ? summary.substring(0, 300) + "..." : summary;
+      lines.push(`- ${truncated}`);
+    }
+  }
+
   return lines.join("\n");
 }
