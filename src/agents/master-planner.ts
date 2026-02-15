@@ -1,11 +1,13 @@
 /**
  * Master planner agent — plans each day's activities using Claude Sonnet.
- * Uses the Anthropic SDK directly for structured JSON output.
+ * Uses the Agent SDK with an in-process MCP tool for structured output.
  *
  * Receives a rolling multi-day summary to maintain narrative continuity.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import { query, tool, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
+import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import { z } from "zod";
 import type { Config } from "../config.js";
 import type { DayPlan, Activity, NarrativeBeat, PersonaId } from "../types/simulation.js";
 import type { SprintDefinition } from "../narrative/sprint-calendar.js";
@@ -54,23 +56,10 @@ that team member.
 - escalate_ticket: TK escalates a support ticket to the dev team
 - internal_discussion: Slack-style discussion captured in a ticket comment
 
-## Output Format
-Respond with ONLY a JSON object in this exact format (no markdown, no code fences):
-{
-  "activities": [
-    {
-      "time": "09:00",
-      "persona": "sasha",
-      "type": "sprint_ceremony",
-      "description": "Sprint planning for Sprint 5 — review backlog, assign stories, set sprint goal",
-      "relatedKeys": ["DR-45", "DR-52"],
-      "narrativeBeat": "Sprint 5 focuses on danger zones v2"
-    }
-  ]
-}
-
-Activities should be in chronological order by time. Include 10-30 activities per day depending on
-how busy the day is. Sprint ceremony days should have more ceremony-related activities.
+## Output
+Use the output_day_plan tool to submit your planned activities. Include 10-30 activities per day
+depending on how busy the day is. Sprint ceremony days should have more ceremony-related activities.
+Activities should be in chronological order by time.
 Each activity description should be specific enough for a persona agent to generate realistic content.
 Include relatedKeys when the activity references existing tickets.`;
 
@@ -79,6 +68,53 @@ export interface PlannerResult {
   inputTokens: number;
   outputTokens: number;
 }
+
+// ─── MCP Tool Server Factory ────────────────────────────────────────
+
+const PERSONA_IDS = ["chad","vanessa","tammy","sasha","marcus","cooper","priya","raj","dana","tk"] as const;
+const ACTIVITY_TYPES = ["create_ticket","comment_ticket","transition_ticket","create_page","update_page","comment_page","sprint_ceremony","code_review","escalate_ticket","internal_discussion"] as const;
+
+function createPlannerToolServer(capturedActivities: Activity[]) {
+  const plannerTools = [
+    tool(
+      "output_day_plan",
+      "Submit the planned activities for the day. Call this once with all activities.",
+      {
+        activities: z.array(z.object({
+          time: z.string().describe("HH:MM format"),
+          persona: z.enum(PERSONA_IDS).describe("Team member ID"),
+          type: z.enum(ACTIVITY_TYPES).describe("Activity type"),
+          description: z.string().describe("Specific description for the persona agent to execute"),
+          relatedKeys: z.array(z.string()).optional().describe("Existing ticket keys referenced"),
+          narrativeBeat: z.string().optional().describe("Narrative beat this activity relates to"),
+        })),
+      },
+      async (args) => {
+        capturedActivities.push(...args.activities.map((a) => ({
+          time: a.time,
+          persona: a.persona as PersonaId,
+          type: a.type,
+          description: a.description,
+          relatedKeys: a.relatedKeys || [],
+          narrativeBeat: a.narrativeBeat || undefined,
+        })));
+        return {
+          content: [{ type: "text" as const, text: "Plan recorded." }],
+        };
+      }
+    ),
+  ];
+
+  return createSdkMcpServer({
+    name: "deadroute-planner-tools",
+    version: "1.0.0",
+    tools: plannerTools,
+  });
+}
+
+
+
+// ─── Agent Execution ────────────────────────────────────────────────
 
 export async function planDay(
   date: string,
@@ -91,7 +127,6 @@ export async function planDay(
   config: Config,
   tokenTracker: TokenTracker
 ): Promise<PlannerResult> {
-  const client = new Anthropic({ apiKey: config.anthropicApiKey });
   const prompt = buildPlannerPrompt(
     date,
     dayOfWeek,
@@ -102,15 +137,34 @@ export async function planDay(
     rollingSummary
   );
 
-  const response = await client.messages.create({
-    model: config.plannerModel,
-    max_tokens: 4096,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: prompt }],
+  const capturedActivities: Activity[] = [];
+  const mcpServer = createPlannerToolServer(capturedActivities);
+
+  let inputTokens = 0;
+  let outputTokens = 0;
+
+  const q = query({
+    prompt: prompt,
+    options: {
+      model: config.plannerModel,
+      systemPrompt: SYSTEM_PROMPT,
+      mcpServers: { "deadroute-planner-tools": mcpServer },
+      tools: [],
+      permissionMode: "bypassPermissions",
+      allowDangerouslySkipPermissions: true,
+      maxTurns: 3,
+      persistSession: false,
+    },
   });
 
-  const inputTokens = response.usage.input_tokens;
-  const outputTokens = response.usage.output_tokens;
+  for await (const message of q) {
+    if (message.type === "result") {
+      for (const modelData of Object.values(message.modelUsage)) {
+        inputTokens += modelData.inputTokens;
+        outputTokens += modelData.outputTokens;
+      }
+    }
+  }
 
   tokenTracker.record({
     inputTokens,
@@ -119,15 +173,23 @@ export async function planDay(
     model: config.plannerModel,
   });
 
-  // Extract text from the response
-  let responseText = "";
-  for (const block of response.content) {
-    if (block.type === "text") {
-      responseText += block.text;
-    }
-  }
-
-  const activities = parseActivities(responseText, date);
+  // Fallback if the tool was never called
+  const activities: Activity[] = capturedActivities.length > 0
+    ? capturedActivities
+    : [
+        {
+          time: "09:00",
+          persona: "sasha",
+          type: "create_ticket",
+          description: "Triage and organize the backlog for the day",
+        },
+        {
+          time: "09:30",
+          persona: "tk",
+          type: "escalate_ticket",
+          description: "Review overnight support queue and escalate any critical issues",
+        },
+      ];
 
   const dayPlan: DayPlan = {
     date,
@@ -190,40 +252,3 @@ function buildPlannerPrompt(
   return lines.join("\n");
 }
 
-function parseActivities(responseText: string, date: string): Activity[] {
-  try {
-    let jsonStr = responseText.trim();
-    if (jsonStr.startsWith("```")) {
-      jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-    }
-
-    const parsed = JSON.parse(jsonStr);
-    const activities: Activity[] = (parsed.activities || []).map((a: any) => ({
-      time: a.time || "09:00",
-      persona: a.persona as PersonaId,
-      type: a.type,
-      description: a.description || "",
-      relatedKeys: a.relatedKeys || [],
-      narrativeBeat: a.narrativeBeat || undefined,
-    }));
-
-    return activities;
-  } catch (err) {
-    console.error(`Failed to parse master planner response for ${date}:`, err);
-    console.error("Response was:", responseText.substring(0, 500));
-    return [
-      {
-        time: "09:00",
-        persona: "sasha",
-        type: "create_ticket",
-        description: "Triage and organize the backlog for the day",
-      },
-      {
-        time: "09:30",
-        persona: "tk",
-        type: "escalate_ticket",
-        description: "Review overnight support queue and escalate any critical issues",
-      },
-    ];
-  }
-}
