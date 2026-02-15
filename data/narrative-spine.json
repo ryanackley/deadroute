@@ -1,0 +1,845 @@
+{
+  "companyStartDate": "2025-03-03",
+  "beats": [
+    {
+      "week": 1,
+      "title": "Chad Founds DeadRoute",
+      "description": "Chad Brinkley files incorporation paperwork (hand-written, notarized by a settlement clerk) and officially founds DeadRoute. He pitches the concept to the Marietta settlement council: 'Waze for the zombie apocalypse.' He trades his working F-150 and 200 cans of beans to secure the Jiffy Lube as office space. First company Confluence page created: 'THE VISION' — a rambling manifesto about navigation saving lives.",
+      "involvedPersonas": ["chad", "tammy", "sasha"],
+      "expectedArtifacts": ["create_page", "internal_discussion"]
+    },
+    {
+      "week": 1,
+      "title": "Tammy Sets Up Shop",
+      "description": "Tammy Greer, the Jiffy Lube's old neighbor from the dental practice, agrees to run operations. She cleans the building top to bottom, sets up a supply closet with labeled bins, creates an employee onboarding checklist in Confluence, and drafts the first HR policies including ration credit pay structure and the 'Severe Weather & Horde Incursion Office Closure Policy' (laminated before anyone asks).",
+      "involvedPersonas": ["tammy"],
+      "expectedArtifacts": ["create_page", "create_ticket"]
+    },
+    {
+      "week": 1,
+      "title": "Marcus Joins as Dev Lead",
+      "description": "Chad recruits Marcus Jefferson from the Marietta settlement's infrastructure repair crew. Marcus was a mid-level software engineer at a logistics company before Z-Day. He agrees to join on the condition that he gets to make all technical architecture decisions. First day: he surveys the Jiffy Lube's oil change pit and says 'I can work with this.' Creates the initial architecture decision record: React Native for mobile, Next.js for web dashboard, Python/FastAPI for backend, PostgreSQL for data.",
+      "involvedPersonas": ["chad", "marcus"],
+      "expectedArtifacts": ["create_page", "internal_discussion"]
+    },
+    {
+      "week": 1,
+      "title": "Sasha Creates the Jira Project",
+      "description": "Sasha Kline sets up the DR Jira project and SUP JSM project. She creates the board, defines the workflow (To Do > In Progress > In Review > Done), writes the ticket template page on Confluence ('How to Write a Good Ticket'), and creates the first epic: 'DR-1: Core Navigation MVP.' She also sets up four Confluence spaces: Product, Engineering, Operations, and Marketing.",
+      "involvedPersonas": ["sasha"],
+      "expectedArtifacts": ["create_ticket", "create_page"]
+    },
+    {
+      "week": 2,
+      "title": "Recruiting the Dev Team",
+      "description": "Chad and Marcus recruit the remaining developers from the settlement. Cooper Dawes is found building a barter exchange app on a laptop in the settlement library — Marcus sees his code and is equal parts impressed and horrified. Priya Nambiar volunteers after hearing they need someone who knows Python. Raj Patel, a former Georgia Tech CS student, joins after Marcus promises 'we'll do things properly.' Each person gets an onboarding ticket from Tammy.",
+      "involvedPersonas": ["chad", "marcus", "cooper", "priya", "raj", "tammy"],
+      "expectedArtifacts": ["create_ticket", "internal_discussion", "create_page"]
+    },
+    {
+      "week": 2,
+      "title": "TK Becomes Support Engineer",
+      "description": "Terrence 'TK' Kimball, the former Jiffy Lube technician who was literally already there, gets offered a job. Chad says 'you're good with computers, right?' TK says yes (he built a gaming PC and modded Skyrim). He's assigned to handle user support and maintain the physical infrastructure. He immediately starts organizing the oil pit as a server room, running ethernet cables through the existing conduit.",
+      "involvedPersonas": ["chad", "tk", "tammy"],
+      "expectedArtifacts": ["create_ticket", "internal_discussion"]
+    },
+    {
+      "week": 2,
+      "title": "Vanessa and Dana Round Out the Team",
+      "description": "Vanessa Morales, a former social media coordinator who's been running the settlement's communication board, joins as Head of Marketing. Dana Kowalski, a print shop graphic designer who taught herself Swift, joins as the UI designer and mobile developer. Vanessa immediately starts thinking about user acquisition. Dana asks for the app requirements and starts sketching the map interface on graph paper.",
+      "involvedPersonas": ["chad", "vanessa", "dana"],
+      "expectedArtifacts": ["internal_discussion", "create_page"]
+    },
+    {
+      "week": 2,
+      "title": "Marcus Defines the Architecture",
+      "description": "Marcus writes the first Architecture Decision Record (ADR) in the Engineering Confluence space. The stack: React Native (mobile), Next.js (web dashboard), FastAPI (Python backend), PostgreSQL (data). He documents the reasoning — React Native because they need iOS and Android, FastAPI because Priya knows Python, PostgreSQL because it's reliable. He creates the GitHub repo structure and writes the initial README. Names the production server 'Hershel.'",
+      "involvedPersonas": ["marcus"],
+      "expectedArtifacts": ["create_page", "create_ticket"]
+    },
+    {
+      "week": 3,
+      "title": "Cooper's Weekend Prototype Marathon",
+      "description": "Cooper locks himself in the Jiffy Lube over a weekend and builds the first mobile prototype. It's a React Native app with a map view, basic location tracking, and a 'report sighting' button. The code is one giant 800-line component. Marcus reviews it Monday morning — 'that's... actually really clever' followed by a visible wince. Cooper's commit message for the entire prototype: 'initial stuff.'",
+      "involvedPersonas": ["cooper", "marcus"],
+      "expectedArtifacts": ["create_ticket", "code_review", "comment_ticket"]
+    },
+    {
+      "week": 3,
+      "title": "Priya Stands Up the Database",
+      "description": "Priya sets up PostgreSQL on one of the salvaged servers. She creates the initial schema: users, sighting_reports, routes, settlements. Her first 'Things I Learned This Week' Confluence post documents the setup process. She also builds the first three API endpoints: POST /sightings, GET /routes, GET /settlements. Marcus reviews her code and provides gentle, constructive feedback about input validation.",
+      "involvedPersonas": ["priya", "marcus"],
+      "expectedArtifacts": ["create_ticket", "transition_ticket", "create_page", "code_review"]
+    },
+    {
+      "week": 3,
+      "title": "TK Wires the Server Rack in the Pit",
+      "description": "TK runs power and network cables down into the oil change pit and mounts two salvaged Dell servers on a rack made from old Jiffy Lube shelving. He creates a Confluence page documenting the physical infrastructure: 'The Pit — Server Room Documentation.' Hershel (production) and a staging server are both online. He files an operations ticket for a UPS battery backup because the generator is unreliable.",
+      "involvedPersonas": ["tk", "tammy"],
+      "expectedArtifacts": ["create_page", "create_ticket"]
+    },
+    {
+      "week": 3,
+      "title": "Raj Sets Up CI/CD",
+      "description": "Raj configures Jenkins on a salvaged ThinkPad and writes bash scripts for the CI/CD pipeline. It's not pretty — a cron job pulls from the repo, runs the test suite (3 tests), and deploys to Hershel if they pass. He documents the process in Confluence and creates an 'Engineering Standards' page that nobody will fully follow. He also writes the first unit tests and immediately discovers Cooper's prototype has no error handling.",
+      "involvedPersonas": ["raj", "marcus"],
+      "expectedArtifacts": ["create_ticket", "create_page", "code_review", "comment_ticket"]
+    },
+    {
+      "week": 4,
+      "title": "Vanessa Creates the Brand",
+      "description": "Vanessa creates the DeadRoute brand identity: logo (a compass rose with a bite taken out of it), color palette (muted military green and warning orange), and tone of voice guidelines. She writes the 'Things We Never Say' list (never call zombies 'zombies' — they're 'threats'; never say 'you might die' — say 'elevated risk'). She coins the 'DeadRoute Scouts' concept — power users who report sighting data in exchange for premium features.",
+      "involvedPersonas": ["vanessa", "dana"],
+      "expectedArtifacts": ["create_page", "internal_discussion"]
+    },
+    {
+      "week": 4,
+      "title": "Dana Designs the Map Interface",
+      "description": "Dana creates the initial UI design for the app: the map view with threat overlay, the sighting report flow (3-step wizard: location > threat type > severity), and the route display with danger indicators. She posts annotated screenshots to Confluence and creates Jira tickets for each UI component. Cooper picks up the tickets and starts implementing. Their collaboration begins — Dana designs, Cooper builds, Marcus reviews.",
+      "involvedPersonas": ["dana", "cooper", "sasha"],
+      "expectedArtifacts": ["create_page", "create_ticket", "comment_ticket"]
+    },
+    {
+      "week": 4,
+      "title": "First 100 Users from Marietta",
+      "description": "Vanessa organizes a launch event at the Marietta settlement. Chad gives a speech that's 60% inspiring and 40% incomprehensible. The first 100 users download the app. TK handles the first support requests — mostly 'how do I report a sighting?' and 'the map doesn't load.' He creates a FAQ in Confluence and files the first three JSM tickets. Sasha runs the first sprint planning session.",
+      "involvedPersonas": ["vanessa", "chad", "tk", "sasha"],
+      "expectedArtifacts": ["create_ticket", "create_page", "sprint_ceremony", "escalate_ticket"]
+    },
+    {
+      "week": 4,
+      "title": "First Sprint Retro: Duct Tape and Heroics",
+      "description": "Sasha runs the first sprint retrospective. What went well: 'We built a working app in 3 weeks.' What didn't: 'Cooper's code has no comments,' 'The CI/CD pipeline broke twice,' 'Chad keeps filing tickets at 2AM.' Action items: Cooper will add comments (he won't), Raj will stabilize CI/CD, Chad will stop filing tickets at 2AM (he won't). Sasha documents everything meticulously.",
+      "involvedPersonas": ["sasha", "marcus", "cooper", "raj", "chad", "priya", "dana", "tk", "vanessa", "tammy"],
+      "expectedArtifacts": ["sprint_ceremony", "create_page", "create_ticket"]
+    },
+    {
+      "week": 5,
+      "title": "Routing Bug: App Sends User Toward a Horde",
+      "description": "A user in East Marietta follows a DeadRoute-suggested route that takes them within 200 meters of an active horde cluster. They survive but barely. The report comes in through TK's support queue as a furious, panicked message. TK escalates immediately with full details. Marcus identifies the root cause: the routing algorithm doesn't properly weight recent sighting data — it's using stale threat assessments. This becomes the highest-priority bug in company history.",
+      "involvedPersonas": ["tk", "marcus", "sasha", "chad"],
+      "expectedArtifacts": ["escalate_ticket", "create_ticket", "comment_ticket", "internal_discussion"]
+    },
+    {
+      "week": 5,
+      "title": "TK's First Legendary Escalation",
+      "description": "TK files the escalation ticket that becomes company legend: SUP-47 'YOUR APP TRIED TO KILL ME — Route Sent User Into Sector 7 Horde Zone.' The ticket includes the user's verbatim complaint, reproduction steps, GPS coordinates, timestamp, device info, and a severity assessment: 'Marking critical because DEATH.' He cross-links it to three other reports of suspicious routing in the same area. The ticket gets 14 comments in 4 hours.",
+      "involvedPersonas": ["tk", "marcus", "sasha", "cooper", "priya", "chad"],
+      "expectedArtifacts": ["escalate_ticket", "comment_ticket", "create_ticket"]
+    },
+    {
+      "week": 5,
+      "title": "Chad Promises AI to Buckhead Leaders",
+      "description": "While the team scrambles to fix the routing bug, Chad attends a meeting with Buckhead settlement leaders. Without consulting anyone, he promises that DeadRoute will have 'AI-powered predictive horde movement' within 6 weeks. He comes back to the office and casually mentions it. Marcus stares at him for 10 seconds. Sasha diplomatically files Chad's promise as an epic and immediately defers it to 'Phase 2.' Chad files a ticket at 2AM: 'AI PREDICTION ENGINE — URGENT!!!'",
+      "involvedPersonas": ["chad", "sasha", "marcus"],
+      "expectedArtifacts": ["create_ticket", "comment_ticket", "internal_discussion"]
+    },
+    {
+      "week": 6,
+      "title": "Routing Algorithm v1 Rewrite Begins",
+      "description": "Marcus and Raj begin rewriting the routing algorithm from scratch. Marcus designs the new approach: weighted graph with threat data decay (recent sightings count more), buffer zones around active clusters, and fallback routes. Raj implements the core algorithm while Marcus handles the integration with the existing codebase. They create an epic with 12 sub-tasks. Raj pushes for comprehensive unit tests for each component. Marcus agrees — this code is literally life-or-death.",
+      "involvedPersonas": ["marcus", "raj", "sasha"],
+      "expectedArtifacts": ["create_ticket", "comment_ticket", "code_review", "create_page"]
+    },
+    {
+      "week": 6,
+      "title": "Cooper Finds a Critical Race Condition",
+      "description": "While working on the map refresh, Cooper discovers a race condition in the real-time map update system. Two simultaneous sighting reports for the same grid cell can overwrite each other, causing the map to show stale data. His ticket description is characteristically terse: 'map thing is broken, two updates at same time = bad.' But his fix is elegant — a lock-free concurrent update mechanism that impresses Marcus. 'That's... actually really clever.' Wince.",
+      "involvedPersonas": ["cooper", "marcus", "raj"],
+      "expectedArtifacts": ["create_ticket", "code_review", "comment_ticket", "transition_ticket"]
+    },
+    {
+      "week": 6,
+      "title": "Vanessa Launches Scout Network",
+      "description": "Vanessa officially launches the DeadRoute Scouts program in three settlements: Marietta, Roswell, and Decatur. Scouts are power users who actively report sighting data in exchange for priority routing and a 'Scout' badge in the app. She creates a Confluence page with the program guidelines, recruitment materials, and a tracking spreadsheet. Within the first week, 23 Scouts sign up. User growth spikes 40% as Scouts evangelize the app.",
+      "involvedPersonas": ["vanessa", "sasha", "dana"],
+      "expectedArtifacts": ["create_page", "create_ticket", "comment_ticket"]
+    },
+    {
+      "week": 7,
+      "title": "Priya's First Database Performance Crisis",
+      "description": "With user growth spiking, Priya discovers that several critical queries have no indexes. The sighting report query that powers the map is doing a full table scan on every request. API response times are climbing from 200ms to 3 seconds. She files a ticket, adds indexes, and writes a 'Things I Learned' post about PostgreSQL query optimization that becomes her most-shared piece yet. She also creates a database monitoring dashboard.",
+      "involvedPersonas": ["priya", "marcus", "tk"],
+      "expectedArtifacts": ["create_ticket", "transition_ticket", "create_page", "comment_ticket"]
+    },
+    {
+      "week": 7,
+      "title": "First Sprint Retro with Real Data",
+      "description": "Sasha runs the sprint retro with actual velocity data for the first time. The team discovers they consistently overestimate what they can accomplish — they planned 45 story points and completed 28. Cooper's estimates are wildly inconsistent (he finishes 8-point stories in a day and takes a week on 3-pointers). Raj suggests tracking actual time spent. Cooper says 'lol no.' Sasha documents action items: better estimation, breaking down large stories, Cooper will try to estimate more carefully (he won't).",
+      "involvedPersonas": ["sasha", "marcus", "cooper", "raj", "priya", "dana"],
+      "expectedArtifacts": ["sprint_ceremony", "create_page", "internal_discussion"]
+    },
+    {
+      "week": 7,
+      "title": "Dana Redesigns the Sighting Report Flow",
+      "description": "User feedback via Vanessa reveals that the sighting report flow is confusing — users don't understand the severity scale and the location picker is inaccurate on low-end devices. Dana redesigns the flow: simplified 3-option severity (Low/Medium/High with icons), auto-populated location with manual adjustment, and a confirmation screen. She posts annotated before/after screenshots to Confluence and creates implementation tickets for Cooper.",
+      "involvedPersonas": ["dana", "vanessa", "cooper", "sasha"],
+      "expectedArtifacts": ["create_page", "create_ticket", "comment_ticket"]
+    },
+    {
+      "week": 8,
+      "title": "Routing v1.1 Ships with Buffer Zones",
+      "description": "Marcus and Raj complete the routing algorithm rewrite. Routes now maintain a 500-meter buffer around known threat clusters, weigh recent sightings 3x heavier than old ones, and always compute a fallback route. The deploy to Hershel is nerve-wracking — Marcus talks to the server during the deployment. TK monitors support tickets for the next 48 hours. No near-death reports. The team exhales. Sasha closes the routing epic with a satisfied comment.",
+      "involvedPersonas": ["marcus", "raj", "tk", "sasha", "priya"],
+      "expectedArtifacts": ["transition_ticket", "comment_ticket", "code_review", "create_page"]
+    },
+    {
+      "week": 8,
+      "title": "Chad Files Late-Night Feature Requests",
+      "description": "Chad goes on a 2AM filing spree: 'WHAT IF THE APP HAD A PANIC BUTTON??', 'can we do something with drones??', 'SOCIAL FEATURES — users should be able to friend each other!!', and 'what about a LEADERBOARD for scouts??' Sasha triages them Monday morning, diplomatically assigning priorities. The panic button actually gets promoted to the backlog (it's not a terrible idea). The rest go to Phase 2. Marcus comments on the drone ticket: 'Chad, we talked about this.'",
+      "involvedPersonas": ["chad", "sasha", "marcus"],
+      "expectedArtifacts": ["create_ticket", "comment_ticket"]
+    },
+    {
+      "week": 9,
+      "title": "User Count Hits 10,000",
+      "description": "Vanessa reports that DeadRoute has crossed 10,000 registered users across 8 settlements. She creates a growth metrics page on Confluence with charts and user acquisition data. Chad wants to throw a party. Tammy organizes a small celebration with apocalypse cornbread. Marcus is more concerned than celebratory — he's watching server load climb and knows the infrastructure wasn't built for this scale. He files tickets for horizontal scaling research.",
+      "involvedPersonas": ["vanessa", "chad", "tammy", "marcus", "sasha"],
+      "expectedArtifacts": ["create_page", "create_ticket", "internal_discussion"]
+    },
+    {
+      "week": 9,
+      "title": "Scaling Alarm Bells",
+      "description": "API response times are trending upward again. Priya's database monitoring shows query times doubling week over week. Marcus creates a scaling assessment page documenting the bottlenecks: single PostgreSQL instance, no caching layer, monolithic API, no CDN for map tiles. Raj proposes a caching strategy. Cooper suggests 'just make it faster' which is less helpful. Sasha creates a 'Performance & Scaling' epic with 8 stories.",
+      "involvedPersonas": ["marcus", "priya", "raj", "sasha", "cooper"],
+      "expectedArtifacts": ["create_page", "create_ticket", "comment_ticket", "internal_discussion"]
+    },
+    {
+      "week": 10,
+      "title": "THE GREAT OUTAGE: TK Kicks Hershel",
+      "description": "TK is doing routine maintenance in the pit — replacing a failed fan on the staging server. He steps backward and kicks the power strip connected to Hershel. The production server goes down hard. The PostgreSQL WAL log is corrupted during the unclean shutdown. DeadRoute is completely offline for 6 hours. 10,000 users get 'Connection Failed' errors. TK's incident ticket is a masterpiece of guilty documentation: 'I kicked it. I kicked the server. God help me, I kicked Hershel.'",
+      "involvedPersonas": ["tk", "marcus", "priya", "raj", "cooper"],
+      "expectedArtifacts": ["escalate_ticket", "create_ticket", "comment_ticket", "internal_discussion"]
+    },
+    {
+      "week": 10,
+      "title": "All-Hands Incident Response",
+      "description": "Marcus and TK spend 6 hours in the pit recovering Hershel. Priya works on database recovery from the last backup (they lose 4 hours of sighting data). Raj discovers the CI/CD pipeline doesn't have a rollback procedure. Cooper patches the mobile app to show a friendly offline message instead of a crash. Everyone is in the office — even Chad, who mostly paces and asks 'is it fixed yet?' every 20 minutes. Tammy makes coffee and keeps everyone fed.",
+      "involvedPersonas": ["marcus", "tk", "priya", "raj", "cooper", "chad", "tammy"],
+      "expectedArtifacts": ["comment_ticket", "transition_ticket", "internal_discussion", "create_ticket"]
+    },
+    {
+      "week": 10,
+      "title": "Vanessa Manages the User Fallout",
+      "description": "During the 6-hour outage, Vanessa's support channels explode. She coordinates with TK on status updates, posts to settlement communication boards, and personally responds to the 47 most angry messages. She tracks every piece of negative feedback. The app rating drops from 3.8 to 3.1 in a single day. She creates a 'Crisis Communication Log' page and starts drafting a 'What Happened and What We're Doing About It' user communication.",
+      "involvedPersonas": ["vanessa", "tk", "chad"],
+      "expectedArtifacts": ["create_page", "comment_ticket", "escalate_ticket"]
+    },
+    {
+      "week": 11,
+      "title": "Post-Mortem: The Great Outage",
+      "description": "Sasha facilitates the post-mortem meeting. Marcus writes the incident report: root cause (single point of failure — one power strip, no UPS, no redundancy), contributing factors (no monitoring, no alerting, no backup verification, no rollback procedure). 14 action items are documented. Raj passionately argues for proper monitoring and automated backups. Chad asks if they can 'spin this positively.' Everyone ignores him. The post-mortem page becomes the most-read document in Confluence.",
+      "involvedPersonas": ["sasha", "marcus", "raj", "tk", "priya", "chad"],
+      "expectedArtifacts": ["create_page", "create_ticket", "sprint_ceremony", "internal_discussion"]
+    },
+    {
+      "week": 11,
+      "title": "Raj Pushes for Monitoring",
+      "description": "Armed with post-mortem action items, Raj creates a monitoring epic. He sets up basic health checks, API response time tracking, and database connection monitoring using bash scripts and cron jobs (it's not Datadog, but it works). He creates alerts that page TK's walkie-talkie when Hershel goes unresponsive. He documents everything in a 'Monitoring & Alerting Runbook' that's thorough but slightly over-engineered for their scale.",
+      "involvedPersonas": ["raj", "tk", "marcus"],
+      "expectedArtifacts": ["create_ticket", "transition_ticket", "create_page", "code_review"]
+    },
+    {
+      "week": 11,
+      "title": "Chad's Damage Control Tour",
+      "description": "Chad visits three settlement leaders to explain the outage and reassure them. He's actually good at this — his used car dealer charisma works wonders in person. He returns with two new partnership proposals and a list of feature requests that nobody asked for. He files 5 new tickets at 2AM. Sasha triages them the next morning: one is actually useful (settlement admin dashboard), four go to Phase 2 including 'what if routes could talk to you like a GPS voice.'",
+      "involvedPersonas": ["chad", "sasha", "vanessa"],
+      "expectedArtifacts": ["create_ticket", "comment_ticket", "internal_discussion"]
+    },
+    {
+      "week": 12,
+      "title": "Sasha Implements Incident Response Process",
+      "description": "Sasha creates a formal incident response process: severity levels (SEV1-SEV4), response procedures, communication templates, escalation paths, and post-mortem requirements. She creates ticket templates for incidents and adds an 'Incident' issue type to Jira. Tammy helps with the operational side — who gets called, in what order, and where the physical backup power switch is. The document is thorough and Tammy laminates it.",
+      "involvedPersonas": ["sasha", "tammy", "marcus", "tk"],
+      "expectedArtifacts": ["create_page", "create_ticket", "internal_discussion"]
+    },
+    {
+      "week": 12,
+      "title": "Tammy Creates the Emergency Response Plan",
+      "description": "Tammy writes the 'Horde Incursion & System Outage Response Plan' — a comprehensive document covering both physical safety and system recovery. It includes generator failure procedures, building lockdown protocol, server recovery steps (reviewed by Marcus), and communication chains. She creates operations tickets for each remediation item: buy UPS batteries, secure the pit power cables, label all circuit breakers. It's the most organized document in the company.",
+      "involvedPersonas": ["tammy", "marcus", "tk"],
+      "expectedArtifacts": ["create_page", "create_ticket"]
+    },
+    {
+      "week": 12,
+      "title": "End of Q1 Sprint Review",
+      "description": "Sasha runs the Q1 sprint review. The numbers: 10,200 users, 87 tickets completed, 34 still open, one major outage, zero user fatalities from routing bugs (the near-death incident in Week 5 is counted as a win because the user survived). Velocity is 24 points per sprint, trending up. Marcus presents the technical roadmap for Q2: reliability first, features second. Chad presents a vision that includes drones, AI, and 'maybe a subscription model?' Nobody responds to the subscription model part.",
+      "involvedPersonas": ["sasha", "marcus", "chad", "vanessa"],
+      "expectedArtifacts": ["sprint_ceremony", "create_page", "internal_discussion"]
+    },
+    {
+      "week": 13,
+      "title": "Cooper vs Raj: Ship Fast vs Do It Right",
+      "description": "The tension between Cooper and Raj reaches a breaking point during a code review. Raj leaves 23 comments on Cooper's PR for the panic button feature, including suggestions to refactor the entire component structure. Cooper responds with 'it works tho.' The PR comment thread becomes a 40-message philosophical debate about code quality vs shipping speed. Marcus sees it spiraling and schedules a mediation meeting.",
+      "involvedPersonas": ["cooper", "raj", "marcus"],
+      "expectedArtifacts": ["code_review", "comment_ticket", "internal_discussion"]
+    },
+    {
+      "week": 13,
+      "title": "Marcus Establishes Code Review Standards",
+      "description": "After mediating the Cooper/Raj conflict, Marcus writes a 'Code Review Standards' page in the Engineering space. Key rules: reviews should focus on correctness and readability (not style preferences), reviewers must distinguish 'must fix' from 'nice to have,' and PRs should be reviewed within 24 hours. He also establishes that he's the tiebreaker on disputed reviews. Cooper agrees to write better commit messages (his next commit: 'better message I guess').",
+      "involvedPersonas": ["marcus", "cooper", "raj", "sasha"],
+      "expectedArtifacts": ["create_page", "internal_discussion", "comment_ticket"]
+    },
+    {
+      "week": 13,
+      "title": "1-Star Review Avalanche",
+      "description": "The Great Outage's aftershocks continue — a wave of 1-star reviews hits the remaining App Store (run by a settlement with a cached version of the App Store infrastructure). Vanessa tracks every review and creates a 'Review Response Strategy' page. The app rating is now 2.9. TK updates 'Stuff Users Hate' with the top complaints: unreliable service, slow map loading, confusing sighting report flow, and 'tried to kill me.' Vanessa and Dana start planning UX improvements to address each complaint.",
+      "involvedPersonas": ["vanessa", "tk", "dana", "sasha"],
+      "expectedArtifacts": ["create_page", "create_ticket", "comment_ticket", "update_page"]
+    },
+    {
+      "week": 14,
+      "title": "Test Coverage Push Begins",
+      "description": "Raj leads a test coverage initiative. Current coverage: 12% (embarrassing even by apocalypse standards). He creates a testing epic with stories for each module. He writes a testing guide on Confluence and conducts a 'How to Write Tests' session (Sasha books the one meeting room). Cooper resists: 'tests slow me down.' Marcus backs Raj: 'The routing bug that almost killed someone would have been caught by a test.' Cooper grudgingly writes 3 tests.",
+      "involvedPersonas": ["raj", "marcus", "cooper", "priya", "sasha"],
+      "expectedArtifacts": ["create_ticket", "create_page", "sprint_ceremony", "code_review"]
+    },
+    {
+      "week": 14,
+      "title": "Priya Implements Database Backup Procedures",
+      "description": "Post-outage action item: Priya creates automated database backup procedures. She writes a bash script that takes hourly snapshots and daily full backups, stores them on a separate physical drive, and verifies backup integrity automatically. She documents the entire process in a 'Database Backup & Recovery Runbook.' She tests the recovery process by restoring a backup to the staging server and it works on the second try. Her 'Things I Learned' post about backup strategies gets comments from the whole dev team.",
+      "involvedPersonas": ["priya", "marcus", "raj"],
+      "expectedArtifacts": ["create_ticket", "transition_ticket", "create_page", "code_review"]
+    },
+    {
+      "week": 15,
+      "title": "Infrastructure Hardening Sprint",
+      "description": "Sasha declares a hardening sprint — no new features, only reliability and infrastructure work. Marcus leads the effort: TK installs the UPS batteries in the pit, Raj adds automated rollback to the CI/CD pipeline, Priya optimizes the slowest database queries, and Cooper grudgingly adds error boundaries to the React Native app. Sprint goal: 'Make Hershel unkickable.' The team actually hits 90% of the sprint goal — best sprint completion rate yet.",
+      "involvedPersonas": ["sasha", "marcus", "tk", "raj", "priya", "cooper"],
+      "expectedArtifacts": ["sprint_ceremony", "create_ticket", "transition_ticket", "code_review", "comment_ticket"]
+    },
+    {
+      "week": 15,
+      "title": "Vanessa's 'We Hear You' Campaign",
+      "description": "Vanessa launches a damage control campaign across all settlement communication channels. She writes personal responses to every 1-star review, posts a 'What We Fixed This Month' update, and creates the 'DeadRoute Listens' feedback program where users can submit feature requests. She coordinates with Dana to create visual before/after comparisons of UX improvements. The campaign starts slowly recovering the app rating — from 2.9 to 3.2.",
+      "involvedPersonas": ["vanessa", "dana", "tk", "chad"],
+      "expectedArtifacts": ["create_page", "update_page", "comment_ticket", "create_ticket"]
+    },
+    {
+      "week": 16,
+      "title": "TK Documents 'Stuff Users Hate' v2",
+      "description": "TK publishes the second major edition of his 'Stuff Users Hate (Updated Weekly)' page. It's become required reading for the team. This edition categorizes complaints by severity and frequency: 'will literally die' (routing accuracy), 'will switch to paper maps' (performance), 'annoying but whatever' (UI issues), and 'surprisingly specific' (one user wants a dark mode for nighttime scavenging runs). He cross-links every complaint to a Jira ticket. Dana picks up the dark mode request — it's actually smart.",
+      "involvedPersonas": ["tk", "sasha", "dana", "vanessa"],
+      "expectedArtifacts": ["update_page", "create_ticket", "comment_ticket"]
+    },
+    {
+      "week": 16,
+      "title": "Sprint Retro: Post-Hardening Assessment",
+      "description": "The hardening sprint retro is the most positive one yet. Metrics are improving: API response times down 40%, zero outages this sprint, test coverage up to 23%. The team actually feels good. Raj gives credit to Cooper for the error boundaries ('solid work'). Cooper is visibly pleased but says 'yeah whatever.' The Cooper/Raj détente begins — not friendship, but mutual respect. Sasha notes the improved velocity and team morale in her retro document.",
+      "involvedPersonas": ["sasha", "marcus", "raj", "cooper", "priya", "dana", "tk"],
+      "expectedArtifacts": ["sprint_ceremony", "create_page", "comment_ticket"]
+    },
+    {
+      "week": 17,
+      "title": "Danger Zones v2 Epic Kicks Off",
+      "description": "Sasha creates the Danger Zones v2 epic — the biggest feature project since launch. The v1 danger zones were simple circles on the map. V2 will have dynamic threat assessment (zones that grow/shrink based on real-time sighting data), time-of-day risk factors, and horde migration prediction (not AI, despite Chad's insistence — just statistical trends). Marcus breaks it into 15 stories across backend, frontend, and data pipeline. This will span 3 sprints.",
+      "involvedPersonas": ["sasha", "marcus", "priya", "raj", "cooper", "dana"],
+      "expectedArtifacts": ["create_ticket", "create_page", "sprint_ceremony", "internal_discussion"]
+    },
+    {
+      "week": 17,
+      "title": "Offline Mode: The Technical Challenge",
+      "description": "Marcus writes an ADR for offline mode — the most requested feature and the most technically challenging. When users lose signal (common outside settlements), the app needs to show cached map data and locally stored threat info. The technical challenges are enormous: data freshness, conflict resolution when reconnecting, storage limits on old devices. Marcus estimates 6-8 weeks of development. Cooper says he can do it in 2 (Marcus estimates Cooper will actually take 4).",
+      "involvedPersonas": ["marcus", "cooper", "priya", "sasha"],
+      "expectedArtifacts": ["create_page", "create_ticket", "comment_ticket"]
+    },
+    {
+      "week": 18,
+      "title": "Priya's Migration Crisis",
+      "description": "Priya runs a database migration to add new columns for the Danger Zones v2 feature. The migration script has a bug — it corrupts the staging database by nullifying the settlement_id foreign key on 30% of sighting records. Staging is down for a day. Priya is mortified. Marcus reviews the script and finds the issue: a missing WHERE clause. He's kind about it — 'everyone does this once.' Raj adds migration testing to the CI pipeline. Priya writes a 'Things I Learned' post about migration safety that's her most personal and vulnerable piece yet.",
+      "involvedPersonas": ["priya", "marcus", "raj"],
+      "expectedArtifacts": ["create_ticket", "comment_ticket", "create_page", "code_review"]
+    },
+    {
+      "week": 18,
+      "title": "Dana Designs Offline Mode UI",
+      "description": "Dana designs the offline mode user interface — what does the app look like when it can't reach Hershel? She creates a connectivity indicator (green/yellow/red bar), a 'last updated' timestamp for map data, and a cached data warning overlay. Her annotated mockups are her most detailed work yet — she even accounts for different screen sizes and low-memory devices. She posts to Confluence with the title 'Offline Mode UI Spec — READ BEFORE BUILDING.' Cooper reads it and says 'ok this is actually good.'",
+      "involvedPersonas": ["dana", "cooper", "sasha"],
+      "expectedArtifacts": ["create_page", "create_ticket", "comment_ticket"]
+    },
+    {
+      "week": 19,
+      "title": "Cooper's Caching Innovation",
+      "description": "Cooper builds an innovative tile-based caching layer for the map that compresses threat data into a fraction of the storage space. The approach is unconventional — he essentially invented a custom spatial data compression algorithm. Marcus reviews it and is genuinely impressed: 'This is... I need to think about this for a minute. This is actually brilliant.' Raj admits it's clever but adds tests for edge cases. Cooper's PR message: 'cache thing, seems to work.' It does.",
+      "involvedPersonas": ["cooper", "marcus", "raj"],
+      "expectedArtifacts": ["code_review", "comment_ticket", "create_ticket", "transition_ticket"]
+    },
+    {
+      "week": 19,
+      "title": "Chad Wants Social Features (The Pushback)",
+      "description": "Chad files a ticket at 1:47AM: 'SOCIAL FEATURES — what if users could add friends and share routes and have profiles and maybe a chat feature and what if scouts could form TEAMS!!' The entire team pushes back in the comments. Vanessa: 'Users are asking for reliability, not social.' Marcus: 'We cannot build a social network.' Sasha: 'Added to Phase 2 roadmap for future consideration.' TK: 'I have 40 open support tickets about map loading.' Chad responds: 'ok but think about it.'",
+      "involvedPersonas": ["chad", "sasha", "marcus", "vanessa", "tk"],
+      "expectedArtifacts": ["create_ticket", "comment_ticket"]
+    },
+    {
+      "week": 20,
+      "title": "Vanessa Reports 18K Users",
+      "description": "Vanessa's monthly growth report shows 18,000 active users across 12 settlements. The Scout network is driving most of the growth — settlements with active Scouts see 3x the adoption rate. She presents the data at the sprint review and proposes expanding Scouts to 5 more settlements. Chad is ecstatic. Marcus asks about infrastructure capacity. Priya says the database can handle 25K before they need to worry. Sasha updates the roadmap with scaling milestones.",
+      "involvedPersonas": ["vanessa", "sasha", "chad", "marcus", "priya"],
+      "expectedArtifacts": ["create_page", "sprint_ceremony", "comment_ticket", "update_page"]
+    },
+    {
+      "week": 20,
+      "title": "Sprint Velocity Stabilizes",
+      "description": "Sasha reports that sprint velocity has stabilized at 30 points per sprint for three consecutive sprints. The team is getting better at estimation (except Cooper, whose estimates remain chaotic but average out). She creates a 'Team Health Dashboard' page on Confluence tracking velocity, bug rates, and sprint completion percentage. The hardening sprint investment is paying off — fewer bugs, more predictable delivery. Even Raj admits things are going 'okay.'",
+      "involvedPersonas": ["sasha", "marcus"],
+      "expectedArtifacts": ["create_page", "update_page", "sprint_ceremony"]
+    },
+    {
+      "week": 21,
+      "title": "Chad Sees a Military Drone Demo",
+      "description": "Chad witnesses a military supply drone doing a delivery run to a remote settlement. He becomes instantly, obsessively fixated on drone integration for DeadRoute. He files three tickets in rapid succession: 'DRONE SCOUTING — drones could report horde positions!!' 'DRONE DELIVERY integration with DeadRoute routes???' 'what if we HAD OUR OWN DRONES.' He corners Marcus in the break area and talks about drones for 45 minutes. Marcus adds 'drone' to his mental list of Chad words to tune out.",
+      "involvedPersonas": ["chad", "marcus", "sasha"],
+      "expectedArtifacts": ["create_ticket", "comment_ticket", "internal_discussion"]
+    },
+    {
+      "week": 21,
+      "title": "Sasha's Phase 2 Diplomacy",
+      "description": "Chad files 4 more drone-related tickets over the next few days: 'drone API integration points,' 'drone-mounted cameras for real-time horde tracking,' 'DRONE SWARM for settlement defense (just thinking out loud),' and 'can Cooper build a drone control app?' Sasha diplomatically moves every single one to the Phase 2 backlog. She creates a 'Phase 2 — Future Features' page that is essentially a graveyard for Chad's unhinged ideas, organized by theme. The drone section already has 7 entries.",
+      "involvedPersonas": ["sasha", "chad"],
+      "expectedArtifacts": ["comment_ticket", "transition_ticket", "create_page"]
+    },
+    {
+      "week": 22,
+      "title": "Nashville Competitor Rumor",
+      "description": "Vanessa hears from a Scout that someone in the Nashville settlement is building a similar navigation app called 'SafePath.' She escalates to Chad and Sasha immediately. Chad goes into full competitive panic mode and files a ticket: 'COMPETITOR ANALYSIS — EMERGENCY!!' Vanessa creates a competitive intelligence page with everything she can gather (which isn't much). Sasha convenes a strategy discussion. Marcus's take: 'The best competitive strategy is making our app not crash.' The team agrees.",
+      "involvedPersonas": ["vanessa", "chad", "sasha", "marcus"],
+      "expectedArtifacts": ["create_page", "create_ticket", "internal_discussion", "comment_ticket"]
+    },
+    {
+      "week": 22,
+      "title": "Raj Implements API Versioning",
+      "description": "As the codebase grows, Raj pushes for proper API versioning. He implements a /v1/ prefix for all existing endpoints and creates a versioning strategy document. The change requires updating the mobile app's API client — Cooper handles it with minimal grumbling. Raj also deprecates 3 endpoints that nobody uses anymore and documents the deprecation policy. Marcus reviews and approves with a comment: 'This is how we should have done it from the start.'",
+      "involvedPersonas": ["raj", "marcus", "cooper"],
+      "expectedArtifacts": ["create_ticket", "code_review", "create_page", "transition_ticket"]
+    },
+    {
+      "week": 23,
+      "title": "Priya's Most Popular Post",
+      "description": "Priya writes a 'Things I Learned This Week' post about database replication — specifically, how she set up a read replica of PostgreSQL to handle the increasing read load from the map queries. The post explains the concept clearly, walks through the setup, and includes a section called 'Mistakes I Made Along The Way' (3 mistakes, all educational). It becomes the most-commented page in the Engineering Confluence space. Even Raj comments: 'This is really well written.' Marcus comments: 'I'm sharing this with everyone.'",
+      "involvedPersonas": ["priya", "marcus", "raj"],
+      "expectedArtifacts": ["create_page", "comment_page"]
+    },
+    {
+      "week": 23,
+      "title": "Vanessa Expands Scouts Aggressively",
+      "description": "Vanessa expands the Scout network to 8 new settlements. She creates a 'Scout Coordinator Handbook' on Confluence and trains 4 volunteer Scout coordinators via radio. The Scout network now has 120 active members contributing sighting data daily. She creates Jira tickets for features the Scouts are requesting: route sharing, group alerts, and a Scout leaderboard (Chad's 2AM idea actually resonated with Scouts). She prioritizes with Sasha.",
+      "involvedPersonas": ["vanessa", "sasha", "chad"],
+      "expectedArtifacts": ["create_page", "update_page", "create_ticket", "comment_ticket"]
+    },
+    {
+      "week": 24,
+      "title": "TK Reports Rural Signal Loss Pattern",
+      "description": "TK identifies a pattern in support tickets: users in rural areas between settlements are losing signal at critical moments — right when they're in the highest-risk zones. He creates a detailed 'Support Trends' report with data visualization showing signal loss correlating with distance from settlement towers. He escalates to Marcus with a recommendation: this is why offline mode is critical. The report accelerates the offline mode priority. Cooper starts working on it full-time.",
+      "involvedPersonas": ["tk", "marcus", "cooper", "sasha"],
+      "expectedArtifacts": ["create_page", "escalate_ticket", "comment_ticket", "create_ticket"]
+    },
+    {
+      "week": 24,
+      "title": "Mid-Year Sprint Review",
+      "description": "Sasha runs the mid-year sprint review. Six months of DeadRoute: 18,400 users, 15 settlements, 120 Scouts, 0 confirmed routing fatalities. Velocity is stable, the app rating recovered to 3.4. Marcus presents the technical state: test coverage at 34%, API response time p95 under 800ms, 99.2% uptime since the Great Outage. Outstanding risks: offline mode incomplete, scaling ceiling approaching, tech debt growing. Chad presents 'H2 Vision' which includes drones, AI, and a subscription model. Team nods politely.",
+      "involvedPersonas": ["sasha", "marcus", "vanessa", "chad", "priya"],
+      "expectedArtifacts": ["sprint_ceremony", "create_page", "internal_discussion"]
+    },
+    {
+      "week": 25,
+      "title": "Chad Commits to a Live Demo",
+      "description": "A multi-settlement leaders summit is scheduled for Week 27. Chad commits to giving a live demo of DeadRoute to 15 settlement leaders — without consulting the team first. He announces it at standup with the enthusiasm of a man who has never seen a live demo go wrong. Marcus immediately starts a mental checklist of everything that could fail. Sasha creates a 'Demo Prep' epic with 20 tasks. Cooper says 'oh no.' It becomes the team's rallying focus for the next two weeks.",
+      "involvedPersonas": ["chad", "sasha", "marcus", "cooper"],
+      "expectedArtifacts": ["create_ticket", "sprint_ceremony", "internal_discussion"]
+    },
+    {
+      "week": 25,
+      "title": "Crunch Mode: Demo Prep Begins",
+      "description": "The team enters crunch mode to stabilize features for the settlement leaders demo. Sasha reprioritizes the sprint: demo-critical items only. Dana creates a polished demo flow walkthrough. Cooper fixes 8 UI bugs in two days. Priya optimizes the three queries that show up in the demo flow. Raj sets up a demo environment separate from production so they can't accidentally show real bugs. Marcus reviews everything twice. TK prepares a backup plan for if the network drops during the demo.",
+      "involvedPersonas": ["sasha", "marcus", "cooper", "dana", "priya", "raj", "tk"],
+      "expectedArtifacts": ["create_ticket", "transition_ticket", "code_review", "comment_ticket", "create_page"]
+    },
+    {
+      "week": 26,
+      "title": "Marcus Discovers a Security Vulnerability",
+      "description": "While reviewing code for the demo, Marcus discovers a critical security vulnerability: the route API endpoint exposes the raw GPS coordinates of other users' recent routes. Anyone who knows the API could see where other users have been traveling. In a world where route data reveals supply cache locations and safe house positions, this is catastrophic. Marcus files a SEV1 ticket and calls an emergency meeting. The vulnerability has been live since Week 3.",
+      "involvedPersonas": ["marcus", "raj", "priya", "sasha"],
+      "expectedArtifacts": ["create_ticket", "escalate_ticket", "internal_discussion"]
+    },
+    {
+      "week": 26,
+      "title": "Emergency Security Patch Sprint",
+      "description": "Marcus, Raj, and Priya drop everything to patch the security vulnerability. Raj implements proper authentication on all API endpoints. Priya adds data masking to route responses — users only see aggregated threat data, never individual routes. Marcus reviews every endpoint for similar issues and finds two more (less severe). The patch goes to production in 48 hours. TK monitors for any signs of exploitation. They find none — but Marcus adds 'security audit' to the quarterly schedule.",
+      "involvedPersonas": ["marcus", "raj", "priya", "tk", "sasha"],
+      "expectedArtifacts": ["create_ticket", "transition_ticket", "code_review", "comment_ticket", "create_page"]
+    },
+    {
+      "week": 27,
+      "title": "The Settlement Leaders Demo",
+      "description": "Demo day at the Buckhead settlement community center. Chad presents with Vanessa. The demo mostly works — route planning, sighting reports, danger zone overlays, Scout network data. But during the live Q&A, a settlement leader asks to see routing for a specific area, and the map takes 12 seconds to load. Awkward silence. Cooper, watching remotely, panic-fixes a caching issue and the reload works in 2 seconds. Chad calls it 'real-time self-healing AI.' Nobody corrects him.",
+      "involvedPersonas": ["chad", "vanessa", "cooper", "marcus", "tk"],
+      "expectedArtifacts": ["internal_discussion", "comment_ticket", "create_ticket"]
+    },
+    {
+      "week": 27,
+      "title": "Chad Oversells (Again)",
+      "description": "During the demo, Chad promises the settlement leaders: real-time drone integration (doesn't exist), settlement admin dashboards (barely designed), predictive horde migration (statistical trends, not prediction), and inter-settlement route optimization (not even on the roadmap). He comes back to the office with signed partnership agreements from 3 new settlements and a list of features he promised. Sasha creates tickets for each promise, prioritizes them, and defers 60% to Phase 2. Marcus sighs audibly.",
+      "involvedPersonas": ["chad", "sasha", "marcus", "dana"],
+      "expectedArtifacts": ["create_ticket", "comment_ticket", "internal_discussion", "update_page"]
+    },
+    {
+      "week": 28,
+      "title": "Dana Designs the Settlement Admin Dashboard",
+      "description": "Dana takes on the settlement admin dashboard that Chad promised — it's the one demo promise the team agrees is worth building. She designs a web dashboard showing settlement-level data: active threats nearby, Scout coverage, route safety scores, and user activity. Her wireframes are clean and functional. She creates detailed UI specs with annotated screenshots and posts them to Confluence. Cooper picks up the frontend implementation. Marcus breaks the backend into stories.",
+      "involvedPersonas": ["dana", "cooper", "marcus", "sasha"],
+      "expectedArtifacts": ["create_page", "create_ticket", "comment_ticket"]
+    },
+    {
+      "week": 28,
+      "title": "Three New Settlement Partnerships",
+      "description": "The settlement partnerships from the demo are formalized. Vanessa handles the onboarding: creating Scout coordinators, distributing the app, setting up settlement-specific communication channels. She creates a 'Settlement Onboarding Playbook' on Confluence. TK prepares for the support volume increase. Priya ensures the database can handle the user influx. The three settlements add 3,200 new users in two weeks — the fastest growth spike yet.",
+      "involvedPersonas": ["vanessa", "tk", "priya", "sasha", "tammy"],
+      "expectedArtifacts": ["create_page", "create_ticket", "update_page", "comment_ticket"]
+    },
+    {
+      "week": 29,
+      "title": "Routing Engine Major Refactor",
+      "description": "Marcus and Raj begin a major refactor of the routing engine to support the new settlement partnerships. The current routing only handles single-settlement routes well — multi-settlement routes (crossing between settlement territories) have gaps in coverage data. Marcus designs a hierarchical routing system: local routes (within settlement), regional routes (between adjacent settlements), and long-distance routes (multi-settlement). It's the most ambitious technical project since launch.",
+      "involvedPersonas": ["marcus", "raj", "sasha"],
+      "expectedArtifacts": ["create_ticket", "create_page", "code_review", "comment_ticket"]
+    },
+    {
+      "week": 29,
+      "title": "Hiring Discussion: The 10-Person Ceiling",
+      "description": "The team discusses hiring. They need more developers, another support person, and a QA engineer. But they can't hire — the settlement's labor exchange is tapped out, they're already at 10 people, and there's literally no more space in the Jiffy Lube (the bay is the server room, the office fits 6 desks, and 4 people work in the waiting area). Sasha documents the capacity constraints. Chad says 'we'll figure it out' which means 'everyone works harder.' Tammy frowns.",
+      "involvedPersonas": ["chad", "sasha", "tammy", "marcus"],
+      "expectedArtifacts": ["internal_discussion", "create_page", "comment_ticket"]
+    },
+    {
+      "week": 30,
+      "title": "Burnout Signs Emerge",
+      "description": "Tammy notices the warning signs: Cooper has slept at the office 4 nights this week, Priya is working weekends without being asked, Marcus's commit timestamps show he's coding past midnight regularly, and TK looks exhausted from the support volume increase. She documents her concerns in an operations ticket marked 'High Priority — Team Health.' She schedules one-on-ones with each team member. She makes extra cornbread.",
+      "involvedPersonas": ["tammy", "cooper", "priya", "marcus", "tk"],
+      "expectedArtifacts": ["create_ticket", "internal_discussion", "comment_ticket"]
+    },
+    {
+      "week": 30,
+      "title": "Mandatory Rest Days Implemented",
+      "description": "Tammy presents her team health assessment to Chad and Sasha. She proposes mandatory rest days: every team member takes one full day off per week, no exceptions. Chad resists ('we're in a startup, we have to grind'). Tammy stares at him until he agrees. She creates a rest day schedule on Confluence and an office policy update. She also implements a 'no Jira after 8PM' rule (Cooper ignores it, but at least the policy exists). Sasha adjusts sprint capacity accordingly.",
+      "involvedPersonas": ["tammy", "chad", "sasha"],
+      "expectedArtifacts": ["create_page", "update_page", "internal_discussion", "create_ticket"]
+    },
+    {
+      "week": 31,
+      "title": "Tech Debt Register Hits 100 Items",
+      "description": "Marcus's Technical Debt Register on Confluence reaches the grim milestone of 100 items. He categorizes them: 34 'code smell' items, 28 'missing tests,' 19 'architectural debt,' 12 'documentation gaps,' and 7 'ticking time bombs.' He presents the list at sprint planning and argues for dedicating 20% of each sprint to debt reduction. Sasha agrees. Chad asks 'but what about the drone feature?' Marcus ignores him. The debt burn-down begins.",
+      "involvedPersonas": ["marcus", "sasha", "raj"],
+      "expectedArtifacts": ["update_page", "create_ticket", "sprint_ceremony", "internal_discussion"]
+    },
+    {
+      "week": 31,
+      "title": "Cooper Rage-Quits a Ticket",
+      "description": "Cooper is assigned a ticket to refactor the settings screen — a boring UI task with no interesting technical challenge. After 3 hours, he moves the ticket to 'Won't Do' with the comment 'this is dumb, someone else do it.' Marcus sees it and talks to him. Cooper apologizes the next day, moves the ticket back to 'In Progress,' and finishes it — but also adds a hidden easter egg in the settings screen (a tiny pixelated zombie that appears when you tap the version number 10 times). Marcus finds it in code review and lets it stay.",
+      "involvedPersonas": ["cooper", "marcus", "sasha"],
+      "expectedArtifacts": ["transition_ticket", "comment_ticket", "code_review"]
+    },
+    {
+      "week": 32,
+      "title": "TK's Growing Infrastructure Burden",
+      "description": "As traffic grows, TK's server maintenance becomes more complex. Hershel needs regular attention: disk space management, log rotation, SSL certificate renewals (for the local network), and the generator maintenance schedule is tightening. He creates a comprehensive 'Infrastructure Health' page tracking all physical and digital systems. He also files a ticket requesting help: 'I'm one person maintaining servers, network, generator, AND doing support. Something's gonna slip.' Marcus assigns Raj to help with server automation.",
+      "involvedPersonas": ["tk", "marcus", "raj", "tammy"],
+      "expectedArtifacts": ["create_page", "create_ticket", "comment_ticket", "update_page"]
+    },
+    {
+      "week": 32,
+      "title": "End of Q3 Sprint Review",
+      "description": "Sasha runs the Q3 sprint review. Nine months: 22,000 users, 18 settlements, 150+ Scouts, still zero routing fatalities. The routing engine refactor is 60% complete. Offline mode is in beta. Test coverage at 38%. The mood is tired but proud. Marcus presents the stability metrics — no outages this quarter. TK presents support trends: ticket volume up 200% but resolution time steady. Vanessa projects 30K users by end of month. Chad gives a speech about 'the road ahead' that's only 30% incoherent.",
+      "involvedPersonas": ["sasha", "marcus", "tk", "vanessa", "chad"],
+      "expectedArtifacts": ["sprint_ceremony", "create_page", "internal_discussion"]
+    },
+    {
+      "week": 33,
+      "title": "30,000 Users Milestone",
+      "description": "DeadRoute hits 30,000 active users. Vanessa creates a celebratory post and growth analysis. The growth is accelerating — word-of-mouth from Scouts is the primary driver, followed by settlement leader endorsements from the demo. Chad files a ticket at 2AM: 'WE SHOULD HAVE A 30K USERS CELEBRATION EVENT.' Tammy organizes a small team lunch. Marcus is looking at server load graphs with concern. Priya starts planning a database partitioning strategy.",
+      "involvedPersonas": ["vanessa", "chad", "tammy", "marcus", "priya"],
+      "expectedArtifacts": ["create_page", "create_ticket", "internal_discussion"]
+    },
+    {
+      "week": 33,
+      "title": "App Store Featuring Campaign",
+      "description": "Vanessa mounts a campaign to get DeadRoute featured in the settlement App Store (the cached infrastructure one). She creates polished marketing materials, coordinates with Dana for app screenshots, writes the store listing copy, and submits the application. The App Store operators want to see consistent 4-star ratings before featuring — they're currently at 3.5. Vanessa creates a plan to hit 4 stars: address the top 5 user complaints, solicit positive reviews from Scout coordinators.",
+      "involvedPersonas": ["vanessa", "dana", "sasha"],
+      "expectedArtifacts": ["create_page", "create_ticket", "comment_ticket"]
+    },
+    {
+      "week": 34,
+      "title": "Low-Connectivity Performance Crisis",
+      "description": "Support tickets flood in from users in low-connectivity zones. The app is nearly unusable when signal is weak — map tiles fail to load, sighting reports queue but never send, and routes take 30+ seconds to calculate. TK escalates with data: 40% of users regularly experience low-connectivity conditions. This is no longer an edge case, it's the primary experience for almost half the user base. Marcus convenes an emergency technical discussion.",
+      "involvedPersonas": ["tk", "marcus", "sasha", "cooper", "priya"],
+      "expectedArtifacts": ["escalate_ticket", "create_ticket", "internal_discussion", "comment_ticket"]
+    },
+    {
+      "week": 34,
+      "title": "Cooper and Dana's Performance Collaboration",
+      "description": "Cooper and Dana pair up on a major performance optimization for low-connectivity users. Dana redesigns the UI to gracefully degrade: low-res map tiles, simplified threat overlays, and a 'minimal mode' that shows only essential routing data. Cooper implements aggressive prefetching and his tile caching system finally gets put to full use. The combined result cuts data usage by 70% and makes the app usable on a 2G connection. Marcus calls it 'the best work this team has done.'",
+      "involvedPersonas": ["cooper", "dana", "marcus"],
+      "expectedArtifacts": ["create_ticket", "transition_ticket", "code_review", "comment_ticket", "create_page"]
+    },
+    {
+      "week": 35,
+      "title": "Raj Proposes Microservices (Gets Voted Down)",
+      "description": "Raj presents a proposal to migrate the monolithic FastAPI backend to microservices. He creates a detailed ADR with architecture diagrams, migration plan, and projected benefits. Marcus listens carefully and then explains why it's premature: 10-person team, one server, no orchestration infrastructure, and the migration would take 3 months during which no features ship. Raj is disappointed but accepts the decision. Marcus adds it to the roadmap for 'when we have 50K+ users and more than one server.'",
+      "involvedPersonas": ["raj", "marcus", "sasha", "priya"],
+      "expectedArtifacts": ["create_page", "internal_discussion", "comment_ticket"]
+    },
+    {
+      "week": 35,
+      "title": "Priya Catches Silent Data Corruption",
+      "description": "Priya discovers a subtle bug that's been silently corrupting route data for weeks: a floating-point precision error in the coordinate calculation is causing routes to drift by up to 50 meters in certain grid cells. Not enough to notice on the map, but enough to potentially route someone onto an unsafe road. She traces the bug to a rounding function Cooper wrote in Week 3. The fix is small but the investigation takes 3 days. She documents it as a case study in her 'Things I Learned' series.",
+      "involvedPersonas": ["priya", "cooper", "marcus"],
+      "expectedArtifacts": ["create_ticket", "comment_ticket", "code_review", "create_page"]
+    },
+    {
+      "week": 36,
+      "title": "Chad's 2AM Subscription Ticket",
+      "description": "At 2:17AM, Chad files a ticket: 'WHAT IF WE HAD A SUBSCRIPTION MODEL — free tier gets basic routing, premium gets danger zone alerts, offline mode, and priority Scout data. we could charge in ration credits or barter goods. also what if premium users got a BADGE.' The team wakes up to find it and reacts: Vanessa points out most users can barely afford food. Sasha adds it to Phase 2. Marcus comments 'Please go to sleep, Chad.' TK comments 'Marking this ticket as Won't Do because DEATH of my will to live.'",
+      "involvedPersonas": ["chad", "vanessa", "sasha", "marcus", "tk"],
+      "expectedArtifacts": ["create_ticket", "comment_ticket"]
+    },
+    {
+      "week": 36,
+      "title": "Sprint Retro: The Grind Acknowledged",
+      "description": "Sasha's sprint retro acknowledges the grind openly. Wins: performance optimization shipped, 30K users, zero outages. Concerns: team burnout (Tammy's mandatory rest days are helping but not enough), growing support burden on TK, tech debt still accumulating faster than they can burn it down. Action items: cross-train Raj on support to give TK relief, Cooper commits to writing better test coverage (actually does it this time — 3 tests become 12). The team is tired but functional.",
+      "involvedPersonas": ["sasha", "marcus", "tammy", "tk", "raj", "cooper"],
+      "expectedArtifacts": ["sprint_ceremony", "create_page", "create_ticket"]
+    },
+    {
+      "week": 37,
+      "title": "The Military Contacts DeadRoute",
+      "description": "A military liaison from the Fort Benning settlement contacts Chad through a settlement leader. They want to use DeadRoute's horde tracking data for military operations — route planning for supply convoys, threat assessment for patrol routes, and horde migration data for quarantine zone planning. Chad is thrilled ('WE'RE GOING TO WORK WITH THE MILITARY!!!') and immediately says yes. Marcus asks: 'Did you ask what data they want? Did you ask about terms? Did you ask about anything?' Chad did not.",
+      "involvedPersonas": ["chad", "marcus", "sasha", "vanessa"],
+      "expectedArtifacts": ["internal_discussion", "create_ticket", "create_page"]
+    },
+    {
+      "week": 37,
+      "title": "Compliance Nightmare Begins",
+      "description": "The military request triggers a compliance crisis. Questions nobody has answers to: What data does DeadRoute actually collect? Do users consent to data sharing? Is there a privacy policy? (No.) Who owns the sighting data — the user, the Scout, or DeadRoute? Raj and Marcus frantically audit the codebase to document every data point collected. Priya queries the database to understand data retention. Sasha creates an epic called 'Data Governance & Compliance' with 18 stories. Nobody is happy.",
+      "involvedPersonas": ["raj", "marcus", "priya", "sasha"],
+      "expectedArtifacts": ["create_ticket", "create_page", "internal_discussion", "comment_ticket"]
+    },
+    {
+      "week": 38,
+      "title": "Data Architecture Documentation Sprint",
+      "description": "Marcus and Raj spend the week documenting the entire data architecture. They create comprehensive Confluence pages: data flow diagrams, what data is collected and why, data retention policies (they have to create these), and API data exposure audit results. Priya documents the database schema in detail for the first time since Week 3 — it's changed dramatically. The documentation reveals surprising things: they collect device battery level (Cooper added it for debugging and forgot), and route history is never deleted.",
+      "involvedPersonas": ["marcus", "raj", "priya"],
+      "expectedArtifacts": ["create_page", "update_page", "create_ticket", "comment_ticket"]
+    },
+    {
+      "week": 38,
+      "title": "Legal Discussions with Chad's Cousin",
+      "description": "Chad's 'lawyer' is his cousin Tyler, who was a paralegal at a personal injury firm before Z-Day. Tyler reviews the military data request and the (nonexistent) privacy policy. He drafts a basic Terms of Service and Privacy Policy that Marcus and Raj review for technical accuracy. The documents are... adequate. Sasha manages the review process and creates a page tracking all legal decisions. Tammy files the paperwork with the Marietta settlement's administrative office.",
+      "involvedPersonas": ["chad", "sasha", "marcus", "raj", "tammy"],
+      "expectedArtifacts": ["create_page", "internal_discussion", "create_ticket", "comment_ticket"]
+    },
+    {
+      "week": 39,
+      "title": "Vanessa's User Trust Concerns",
+      "description": "Vanessa raises a critical concern: if users find out DeadRoute is sharing data with the military, trust could collapse overnight. She creates a 'User Trust Risk Assessment' page documenting the risks: Scout network collapse, negative reviews, potential user exodus. She proposes transparency: tell users what data is shared, let them opt out, and make the partnership public on DeadRoute's terms rather than letting it leak. The discussion becomes the most heated internal debate in company history.",
+      "involvedPersonas": ["vanessa", "chad", "sasha", "marcus"],
+      "expectedArtifacts": ["create_page", "internal_discussion", "comment_ticket"]
+    },
+    {
+      "week": 39,
+      "title": "Sasha Manages the Stakeholder Maze",
+      "description": "Sasha finds herself managing the most complex stakeholder situation of her career: Chad wants the military partnership for prestige, Marcus wants data protections, Vanessa wants user trust preserved, Raj wants proper data governance, and TK is fielding user questions about a rumor that 'the government is watching our routes.' She creates a stakeholder decision matrix, facilitates three meetings, and produces a compromise proposal: anonymized, aggregated data only, opt-in for Scouts, full transparency.",
+      "involvedPersonas": ["sasha", "chad", "marcus", "vanessa", "raj", "tk"],
+      "expectedArtifacts": ["create_page", "internal_discussion", "sprint_ceremony", "create_ticket"]
+    },
+    {
+      "week": 40,
+      "title": "TK Discovers Military Already Using DeadRoute",
+      "description": "TK discovers something unsettling while reviewing support tickets: several military users have been using DeadRoute for months already. Their support tickets reference 'convoy routes' and 'patrol planning.' The military isn't just interested in the data — they're already dependent on the app. TK escalates this to Marcus and Sasha with full documentation. This changes the negotiation dynamics: DeadRoute has leverage because the military is already a user. Chad is delighted. Marcus is concerned. Sasha starts revising the partnership terms.",
+      "involvedPersonas": ["tk", "marcus", "sasha", "chad"],
+      "expectedArtifacts": ["escalate_ticket", "create_page", "internal_discussion", "comment_ticket"]
+    },
+    {
+      "week": 40,
+      "title": "Military Partnership Terms Finalized",
+      "description": "After weeks of negotiation (Chad doing the talking, Sasha providing the structure, Marcus providing the technical guardrails), the military partnership is formalized. Terms: DeadRoute provides anonymized, aggregated threat data via a read-only API. In exchange, the military provides quarantine zone boundary data and a backup generator. No individual user data is shared. Vanessa writes the user communication. Raj designs the data export API. The backup generator is the most popular part of the deal.",
+      "involvedPersonas": ["chad", "sasha", "marcus", "raj", "vanessa"],
+      "expectedArtifacts": ["create_page", "create_ticket", "internal_discussion", "comment_ticket"]
+    },
+    {
+      "week": 41,
+      "title": "Quarantine Zone Mapping Feature Begins",
+      "description": "With military quarantine zone data now available, the team begins building the quarantine zone mapping feature. Marcus designs the data integration: the military provides boundary data in XML (of course it's XML), which needs to be parsed, validated, and overlaid on the map. Raj creates the XML parser with visible distaste. Priya sets up a new database table for quarantine zone boundaries. Sasha creates the epic with clear acceptance criteria: users should see quarantine zones on the map with clear visual distinction from threat zones.",
+      "involvedPersonas": ["marcus", "raj", "priya", "sasha"],
+      "expectedArtifacts": ["create_ticket", "create_page", "code_review", "comment_ticket"]
+    },
+    {
+      "week": 41,
+      "title": "Ethical Debates About Data Sharing",
+      "description": "The ethical implications of the military partnership spark ongoing discussions. Marcus writes an Engineering blog post: 'Data Ethics in the Apocalypse — What We Owe Our Users.' Vanessa surveys Scout coordinators about the partnership — reactions are mixed. Priya raises a technical concern: even anonymized data could be de-anonymized by cross-referencing route patterns. Raj implements additional data masking. The team creates an ethics checklist for future data partnerships.",
+      "involvedPersonas": ["marcus", "vanessa", "priya", "raj", "sasha"],
+      "expectedArtifacts": ["create_page", "internal_discussion", "comment_ticket", "create_ticket"]
+    },
+    {
+      "week": 42,
+      "title": "Cooper Builds the Quarantine Zone Map Overlay",
+      "description": "Cooper takes on the quarantine zone map overlay and builds it in a weekend sprint. The overlay shows quarantine zones as hatched red areas with clear borders, distinct from the orange threat zones. He adds interactivity: tapping a zone shows its designation, effective date, and whether it's active or pending. His commit message: 'zones lol.' The code review from Marcus is positive — Cooper is getting better at structuring his components, even if his commit messages aren't. The feature looks great.",
+      "involvedPersonas": ["cooper", "marcus", "dana"],
+      "expectedArtifacts": ["code_review", "transition_ticket", "comment_ticket"]
+    },
+    {
+      "week": 42,
+      "title": "Dana Designs Her Best Work",
+      "description": "Dana designs the quarantine zone UI — and it's her best work at DeadRoute. She creates a visual language that clearly distinguishes between threat zones (active danger), quarantine zones (restricted areas), and safe corridors. The design includes a legend, zone status indicators, and route adjustments that visually explain why the app routes around quarantine zones. She posts the most comprehensive UI spec she's ever created, with 22 annotated screenshots. Even Cooper says 'dana this is sick.'",
+      "involvedPersonas": ["dana", "cooper", "vanessa", "sasha"],
+      "expectedArtifacts": ["create_page", "comment_ticket", "create_ticket"]
+    },
+    {
+      "week": 43,
+      "title": "User Backlash: Living in Quarantine Zones",
+      "description": "When quarantine zones go live, DeadRoute discovers a problem nobody anticipated: some active users live inside quarantine zones. The app now shows their home location as a restricted area with a threatening red overlay. TK is flooded with support tickets: 'Your app says my home is a quarantine zone!' 'Am I in danger?' 'My settlement is inside the red area!' He escalates with 47 tickets in one day — his personal record. The team scrambles to add a 'your location is in a quarantine zone' informational overlay instead of a threat warning.",
+      "involvedPersonas": ["tk", "dana", "cooper", "sasha", "vanessa"],
+      "expectedArtifacts": ["escalate_ticket", "create_ticket", "comment_ticket", "transition_ticket"]
+    },
+    {
+      "week": 43,
+      "title": "TK's Record Support Week",
+      "description": "TK handles 127 support tickets in a single week — more than the previous record by 50%. He creates a categorized escalation report, identifies the top 5 issues, and proposes solutions for each. His 'Support Trends' report for this week is the most detailed yet. He also creates a 'Quarantine Zone FAQ' for users. Raj, now cross-trained on support, helps handle the overflow. Tammy checks on TK twice and brings him extra cornbread. He's exhausted but his work prevents a user trust crisis.",
+      "involvedPersonas": ["tk", "raj", "tammy", "sasha"],
+      "expectedArtifacts": ["create_page", "update_page", "escalate_ticket", "comment_ticket", "create_ticket"]
+    },
+    {
+      "week": 44,
+      "title": "Quarantine Zone Hotfix Sprint",
+      "description": "The team runs a hotfix sprint to address the quarantine zone backlash. Dana redesigns the in-zone experience: instead of a threatening red overlay, users inside quarantine zones see a blue informational banner with zone status and relevant guidelines. Cooper implements it in 2 days. Priya adds a user location check to the zone query so the app responds differently for users inside vs. outside zones. Vanessa drafts user communication explaining the feature. The app rating stabilizes after a brief dip.",
+      "involvedPersonas": ["dana", "cooper", "priya", "vanessa", "sasha", "marcus"],
+      "expectedArtifacts": ["create_ticket", "transition_ticket", "code_review", "create_page", "comment_ticket"]
+    },
+    {
+      "week": 44,
+      "title": "Government Data Integration Hardened",
+      "description": "Raj hardens the government data integration pipeline. The XML feeds are unreliable — sometimes malformed, sometimes delayed, sometimes contradictory. He builds a validation layer that catches bad data before it hits the database, a reconciliation process for conflicting zone boundaries, and a fallback to the last known good state when feeds fail. He writes comprehensive tests (48 test cases for the XML parser alone). Marcus reviews and approves with the comment: 'This is your best work, Raj.'",
+      "involvedPersonas": ["raj", "marcus", "priya"],
+      "expectedArtifacts": ["code_review", "create_ticket", "transition_ticket", "comment_ticket", "create_page"]
+    },
+    {
+      "week": 45,
+      "title": "43,000 Users — Vanessa's Growth Report",
+      "description": "Vanessa publishes the year-end growth report: 43,000 active users across 23 settlements. She breaks down the metrics: 35% growth from Scouts, 28% from settlement partnerships, 22% from word-of-mouth, 15% from the demo's aftereffects. The Scout network has 210 active members. App rating: 3.7 (recovered from the 2.9 post-outage low). She also reports user retention: 78% of users who try the app keep using it. Chad wants to frame the report. Sasha updates the roadmap with growth projections.",
+      "involvedPersonas": ["vanessa", "chad", "sasha"],
+      "expectedArtifacts": ["create_page", "update_page", "internal_discussion"]
+    },
+    {
+      "week": 45,
+      "title": "Chad Announces Phase 2",
+      "description": "At an all-hands meeting, Chad announces 'Phase 2' of DeadRoute with the energy of someone revealing a new car model. The problem: nobody knows what Phase 2 is, including Chad. He uses phrases like 'the next evolution,' 'scaling our impact,' and 'leveraging our data assets.' Marcus asks: 'What specifically are we building in Phase 2?' Chad says: 'That's what I need you all to figure out.' Sasha stares at her notebook. Cooper whispers 'lol' to Priya. Tammy takes notes anyway because she's professional.",
+      "involvedPersonas": ["chad", "sasha", "marcus", "cooper", "priya", "tammy"],
+      "expectedArtifacts": ["internal_discussion", "sprint_ceremony"]
+    },
+    {
+      "week": 46,
+      "title": "Sasha Tries to Define Phase 2",
+      "description": "Sasha attempts to give Phase 2 meaning. She reviews all of Chad's deferred tickets (67 of them), Vanessa's user research, Marcus's tech roadmap, and TK's support trends. She creates a 'Phase 2 Roadmap Proposal' that actually makes sense: three pillars — Reliability (offline mode completion, performance), Reach (new settlement onboarding, Scout expansion), and Intelligence (better horde prediction, quarantine zone integration). Chad approves it because 'Intelligence' sounds like the AI he wanted.",
+      "involvedPersonas": ["sasha", "chad", "marcus", "vanessa"],
+      "expectedArtifacts": ["create_page", "create_ticket", "internal_discussion", "update_page"]
+    },
+    {
+      "week": 46,
+      "title": "Tech Debt Reckoning",
+      "description": "Marcus presents the tech debt reckoning: the Technical Debt Register has 118 items. He insists on paying down debt before Phase 2 features begin. He categorizes the debt into tiers: 'will cause an outage eventually' (8 items), 'will slow us down significantly' (23 items), and 'ugly but functional' (87 items). He proposes a 2-week debt sprint before Phase 2 starts. Sasha agrees. Cooper actually volunteers for debt items — he's grown up a bit. Raj is vindicated.",
+      "involvedPersonas": ["marcus", "sasha", "raj", "cooper"],
+      "expectedArtifacts": ["update_page", "create_ticket", "sprint_ceremony", "internal_discussion"]
+    },
+    {
+      "week": 47,
+      "title": "Raj's Testing Victory",
+      "description": "Raj's months-long campaign for proper testing finally bears fruit. Test coverage reaches 52% — still not great, but a massive improvement from the 12% he inherited. More importantly, the test suite catches 3 bugs this sprint before they reach production, including one that would have caused incorrect route calculations in the quarantine zone. He creates a 'Testing at DeadRoute: Year 1 Report' page. Cooper admits: 'ok fine tests are useful I guess.' Raj screenshots this and saves it.",
+      "involvedPersonas": ["raj", "cooper", "marcus", "priya"],
+      "expectedArtifacts": ["create_page", "comment_ticket", "code_review"]
+    },
+    {
+      "week": 47,
+      "title": "Cooper and Raj Reach Détente",
+      "description": "Over the tech debt sprint, Cooper and Raj finally find their working rhythm. Cooper has learned to write tests (grudgingly), and Raj has learned that sometimes Cooper's 'hacky' solutions are actually innovative. They pair on a refactor of the notification system — Raj architects, Cooper implements, and they review each other's code without fighting. Marcus comments on the PR: 'Am I dreaming?' Sasha notes the collaboration in her sprint notes. It's not friendship, but it's functional.",
+      "involvedPersonas": ["cooper", "raj", "marcus", "sasha"],
+      "expectedArtifacts": ["code_review", "comment_ticket", "transition_ticket"]
+    },
+    {
+      "week": 48,
+      "title": "Priya's Database: Most Reliable Part of the Stack",
+      "description": "Priya's database infrastructure is now officially the most reliable part of the DeadRoute stack. Zero data loss incidents since the backup procedures were implemented. Read replica handling 60% of query load. Automated monitoring catches issues before they affect users. Marcus gives her a shoutout in the engineering update: 'Priya's database work is the reason we sleep at night.' She writes a comprehensive 'Database Operations Annual Review' that's technical, confident, and shows how far she's grown from 'I think this might work.'",
+      "involvedPersonas": ["priya", "marcus"],
+      "expectedArtifacts": ["create_page", "comment_page", "update_page"]
+    },
+    {
+      "week": 48,
+      "title": "Q4 Sprint Review",
+      "description": "Sasha runs the final quarterly sprint review of the year. Full year metrics: 43K users, 23 settlements, 210 Scouts, 1 major outage (The Great Outage), 0 routing fatalities. Sprint velocity averaged 30 points. Test coverage from 0% to 52%. The quarantine zone feature launched and stabilized. The military partnership is generating the backup generator they were promised (it arrived last week — TK installed it with visible joy). Chad gives a speech. It's mostly coherent. The team applauds.",
+      "involvedPersonas": ["sasha", "marcus", "chad", "vanessa", "tk"],
+      "expectedArtifacts": ["sprint_ceremony", "create_page", "internal_discussion"]
+    },
+    {
+      "week": 49,
+      "title": "Sasha's Annual Retrospective — Her Magnum Opus",
+      "description": "Sasha facilitates the annual retrospective, her most comprehensive ceremony yet. She covers every quarter, every major incident, every milestone. The retro runs 3 hours (unprecedented). Key themes: 'We survived' (the team), 'We grew' (10 people, 43K users), 'We learned' (post-mortem culture, testing, data governance). She documents 47 action items for Year 2. The retrospective page on Confluence is 4,000 words long with embedded charts. Even Chad reads the whole thing.",
+      "involvedPersonas": ["sasha", "marcus", "cooper", "raj", "priya", "dana", "tk", "vanessa", "tammy", "chad"],
+      "expectedArtifacts": ["sprint_ceremony", "create_page", "internal_discussion"]
+    },
+    {
+      "week": 49,
+      "title": "Roadmap Planning for Year 2",
+      "description": "The leadership team (Chad, Sasha, Marcus, Vanessa) convenes for Year 2 roadmap planning. Sasha presents the Phase 2 framework. Marcus presents the technical prerequisites (debt paydown, scaling infrastructure, security hardening). Vanessa presents the growth targets (60K users, 35 settlements). Chad presents his vision (drones, AI, subscription model, 'maybe an office that isn't a Jiffy Lube'). They compromise on a roadmap that's ambitious but not insane. Sasha creates the Year 2 Roadmap page.",
+      "involvedPersonas": ["chad", "sasha", "marcus", "vanessa"],
+      "expectedArtifacts": ["create_page", "internal_discussion", "create_ticket"]
+    },
+    {
+      "week": 50,
+      "title": "Chad's Year-End Vision Document",
+      "description": "Chad publishes his year-end vision document: 'DEADROUTE: THE ROAD AHEAD (READ THIS EVERYONE!!)' It's 2,500 words long and equal parts inspiring and deranged. Highlights: 'We saved lives this year' (true), 'We are the Google Maps of the apocalypse' (aspirational), 'Phase 2 will include drone integration' (no it won't), 'I see DeadRoute going public in 3 years' (going public WHERE, Chad?), and 'This team is my family' (genuinely touching). Everyone reads it. Nobody corrects the factual errors. Tammy prints and laminates the 'This team is my family' section.",
+      "involvedPersonas": ["chad", "tammy"],
+      "expectedArtifacts": ["create_page", "comment_page"]
+    },
+    {
+      "week": 50,
+      "title": "Marcus's Honest Architecture Assessment",
+      "description": "Marcus writes the 'Year 1 Architecture Assessment' — an honest, thorough evaluation of every technical decision they made. What worked: FastAPI (fast to develop), PostgreSQL (rock solid), React Native (one codebase, two platforms). What didn't: no caching from day one (cost them the outage recovery time), monolithic backend (approaching scaling limits), insufficient monitoring (caught too many issues from user reports). His recommendations for Year 2 are pragmatic and prioritized. The team uses it as the technical foundation for the Year 2 roadmap.",
+      "involvedPersonas": ["marcus", "raj", "priya"],
+      "expectedArtifacts": ["create_page", "comment_page"]
+    },
+    {
+      "week": 51,
+      "title": "TK's State of Support Report",
+      "description": "TK publishes the 'State of Support: Year 1' report. It's data-rich and reveals fascinating patterns: support tickets peak on Tuesdays (scavenging day in most settlements), the most common complaint shifted from 'app crashes' (Q1) to 'route accuracy' (Q2) to 'slow performance' (Q3) to 'quarantine zone confusion' (Q4) — a sign of maturing user expectations. He handled 2,847 support tickets personally. His recommendations: in-app help center, better error messages, and 'please give me an assistant because I am one person and there are 43,000 users.'",
+      "involvedPersonas": ["tk", "sasha", "vanessa"],
+      "expectedArtifacts": ["create_page", "comment_page", "internal_discussion"]
+    },
+    {
+      "week": 51,
+      "title": "Cooper's Yearly Cleanup PR",
+      "description": "Cooper submits a PR with the message 'yearly cleanup lol.' It's actually a massive code quality improvement: he removes 3,400 lines of dead code, consolidates 7 redundant utility functions, fixes 23 TODO comments (by either doing the TODO or removing it), and adds JSDoc comments to every public function in the frontend codebase. Marcus reviews it and is genuinely moved: 'Cooper, this is... incredible.' Cooper says 'yeah I was bored.' Raj approves without a single comment — unprecedented.",
+      "involvedPersonas": ["cooper", "marcus", "raj"],
+      "expectedArtifacts": ["code_review", "comment_ticket", "transition_ticket"]
+    },
+    {
+      "week": 52,
+      "title": "Tammy's Holiday Party",
+      "description": "Tammy organizes the DeadRoute Year 1 holiday party in the Jiffy Lube waiting area. She makes three batches of apocalypse cornbread (everyone's favorite), decorates with hand-drawn banners, and creates a 'Year in Review' poster with key milestones. Chad gives a toast. Marcus thanks the team. Cooper DJs from his Spotify playlist (taste remains disputed). Priya and Raj bond over shared exasperation with Cooper's music choices. TK brings a cake he bartered for. Dana quietly takes photos. It's the best night they've had all year.",
+      "involvedPersonas": ["tammy", "chad", "marcus", "cooper", "priya", "raj", "dana", "tk", "vanessa", "sasha"],
+      "expectedArtifacts": ["internal_discussion", "create_page"]
+    },
+    {
+      "week": 52,
+      "title": "Vanessa's Year-End Growth Narrative",
+      "description": "Vanessa publishes her final marketing report of the year: 'DeadRoute Year 1: From 0 to 43K — How a Jiffy Lube Became a Lifeline.' It covers the full growth story: the first 100 users in Marietta, the Scout network's organic growth, the near-death PR crisis, the recovery campaign, the settlement leader demo, and the military partnership. She includes user testimonials (one Scout writes: 'DeadRoute saved my supply run crew twice'). The report is her best professional work — polished, data-driven, and genuinely compelling.",
+      "involvedPersonas": ["vanessa", "sasha", "chad"],
+      "expectedArtifacts": ["create_page", "comment_page", "update_page"]
+    },
+    {
+      "week": 52,
+      "title": "Cautious Optimism: The Final Standup",
+      "description": "The last standup of Year 1. Marcus summarizes: the app works, 43,000 people depend on it, and nobody has died because of a routing error. Test coverage is at 52%. Hershel has been running for 3 months without a reboot. The team is tired but intact. Chad says 'Year 2 is going to be HUGE.' Sasha says 'Year 2 is going to be structured.' Cooper says 'year 2 whatever.' TK says 'Year 2 — maybe I get an assistant?' Tammy says 'Year 2 — I'll make more cornbread.' They close the Jira board for the last sprint of the year. 34 tickets resolved. 89 in the backlog. The road ahead is long, but it's mapped.",
+      "involvedPersonas": ["marcus", "chad", "sasha", "cooper", "tk", "tammy", "vanessa", "raj", "priya", "dana"],
+      "expectedArtifacts": ["sprint_ceremony", "transition_ticket", "internal_discussion"]
+    }
+  ]
+}
