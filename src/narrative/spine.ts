@@ -4,14 +4,15 @@
 
 import { readFile } from "fs/promises";
 import { join } from "path";
-import type { NarrativeBeat } from "../types/simulation.js";
+import type { NarrativeBeat, NarrativeSpine } from "../types/simulation.js";
 
 let cachedBeats: NarrativeBeat[] | null = null;
 
 export async function loadNarrativeSpine(dataDir: string = "./data"): Promise<NarrativeBeat[]> {
   if (cachedBeats) return cachedBeats;
   const data = await readFile(join(dataDir, "narrative-spine.json"), "utf-8");
-  cachedBeats = JSON.parse(data) as NarrativeBeat[];
+  const spine = JSON.parse(data) as NarrativeSpine;
+  cachedBeats = spine.beats;
   return cachedBeats;
 }
 
