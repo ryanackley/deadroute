@@ -6,7 +6,6 @@
  */
 
 import { query, tool, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
-import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import type { Config } from "../config.js";
 import type { DayPlan, Activity, NarrativeBeat, PersonaId } from "../types/simulation.js";
@@ -16,6 +15,12 @@ import type { TokenTracker } from "../simulation/token-tracker.js";
 const SYSTEM_PROMPT = `You are the master planner for a simulation of a fictional startup called DeadRoute.
 DeadRoute is "Waze for the zombie apocalypse" — a crowdsourced navigation app for post-outbreak America.
 The company operates out of a converted Jiffy Lube in Marietta, Georgia with 10 employees.
+
+State of the world is isolated settlements that are coping with scarcity, military checkpoints without clear
+chains of command. Zombie hoards roaming the areas between settlements. A barely functional US government. 
+Surprisingly, there is still cell service for much of the local area. The office uses a StarLink to connect 
+to the internet. There is still a functioning Internet. It's okay to bend plausiblity since this is meant to be
+slightly humorous and not take itself too seriously. 
 
 Your job is to plan a realistic day of work activities for the team. You output a JSON array of activities
 that will drive content generation. Each activity will be executed by a persona agent who roleplays as
@@ -55,13 +60,35 @@ that team member.
 - code_review: Review code / comment on implementation
 - escalate_ticket: TK escalates a support ticket to the dev team
 - internal_discussion: Slack-style discussion captured in a ticket comment
+- start_sprint: Sasha activates/starts the new sprint (use on sprint planning day)
+- close_sprint: Sasha completes/closes the current sprint (use on sprint review day)
 
 ## Output
-Use the output_day_plan tool to submit your planned activities. Include 10-30 activities per day
+Plan out an arc of the team's day. For example, meetings (impromptu or planed), slack convos, and uninterrupted work. You can include out of the office activities too. The idea is you're trying to build the bones for artifacts to be produced around. After you have the bones, use the output_day_plan tool to submit your planned activities. Include 10-30 activities per day
 depending on how busy the day is. Sprint ceremony days should have more ceremony-related activities.
 Activities should be in chronological order by time.
 Each activity description should be specific enough for a persona agent to generate realistic content.
-Include relatedKeys when the activity references existing tickets.`;
+Include relatedKeys when the activity references existing tickets.
+
+## Office Context
+When calling output_day_plan, you MUST include an officeContext field: a concise 2-4 sentence "state of the office" brief.
+This will be injected into every persona agent's prompt to ground their behavior in the company's current reality.
+
+The officeContext MUST cover:
+1. **Product phase**: What stage is the company at? (founding/hiring, building MVP, internal testing, first users, growing, scaling, crisis recovery, etc.)
+2. **User count**: If the product has launched, approximate how many users/scouts exist. If it hasn't launched yet, say so explicitly ("no users yet, product is still being built").
+3. **Team vibe**: General morale — excited, stressed, exhausted, celebrating, anxious, etc.
+4. **Key recent context**: One sentence about the most relevant recent event.
+
+Example for week 1:
+"DeadRoute is in its founding week. The team is being assembled and there is no product and no users — the company is pure idea at this stage. Energy is high but chaotic as Chad pitches his vision and the first employees set up shop in a converted Jiffy Lube."
+
+Example for week 8:
+"DeadRoute has a working prototype deployed to roughly 100 users in the Marietta settlement. The app does basic routing and sighting reports but is buggy. The team is small-startup-scrappy: long hours, duct-tape solutions, everyone wearing multiple hats. Morale is cautiously optimistic."
+
+Example for week 20:
+"DeadRoute now serves around 2,000 users across several settlements. The routing engine is stable after the Great Outage recovery, but tech debt is piling up. The team is feeling the weight of scaling — more support tickets, more edge cases, more pressure from settlement leaders wanting features."`;
+
 
 export interface PlannerResult {
   dayPlan: DayPlan;
@@ -72,14 +99,22 @@ export interface PlannerResult {
 // ─── MCP Tool Server Factory ────────────────────────────────────────
 
 const PERSONA_IDS = ["chad","vanessa","tammy","sasha","marcus","cooper","priya","raj","dana","tk"] as const;
-const ACTIVITY_TYPES = ["create_ticket","comment_ticket","transition_ticket","create_page","update_page","comment_page","sprint_ceremony","code_review","escalate_ticket","internal_discussion"] as const;
+const ACTIVITY_TYPES = ["create_ticket","comment_ticket","transition_ticket","create_page","update_page","comment_page","sprint_ceremony","code_review","escalate_ticket","internal_discussion","start_sprint","close_sprint"] as const;
 
-function createPlannerToolServer(capturedActivities: Activity[]) {
+function createPlannerToolServer(
+  capturedActivities: Activity[],
+  captured: { officeContext: string }
+) {
   const plannerTools = [
     tool(
       "output_day_plan",
       "Submit the planned activities for the day. Call this once with all activities.",
       {
+        officeContext: z.string().describe(
+          "2-4 sentence 'state of the office' brief. Cover: product phase (founding/building/alpha/launched/scaling/crisis), " +
+          "approximate user count (or 'no users yet'), team morale/vibe, and key recent events. " +
+          "This context will be shared with every persona agent to ground their behavior."
+        ),
         activities: z.array(z.object({
           time: z.string().describe("HH:MM format"),
           persona: z.enum(PERSONA_IDS).describe("Team member ID"),
@@ -90,6 +125,7 @@ function createPlannerToolServer(capturedActivities: Activity[]) {
         })),
       },
       async (args) => {
+        captured.officeContext = args.officeContext;
         capturedActivities.push(...args.activities.map((a) => ({
           time: a.time,
           persona: a.persona as PersonaId,
@@ -111,8 +147,6 @@ function createPlannerToolServer(capturedActivities: Activity[]) {
     tools: plannerTools,
   });
 }
-
-
 
 // ─── Agent Execution ────────────────────────────────────────────────
 
@@ -138,7 +172,8 @@ export async function planDay(
   );
 
   const capturedActivities: Activity[] = [];
-  const mcpServer = createPlannerToolServer(capturedActivities);
+  const captured = { officeContext: "" };
+  const mcpServer = createPlannerToolServer(capturedActivities, captured);
 
   let inputTokens = 0;
   let outputTokens = 0;
@@ -146,13 +181,10 @@ export async function planDay(
   const q = query({
     prompt: prompt,
     options: {
-      model: config.plannerModel,
+      //model: config.plannerModel,
       systemPrompt: SYSTEM_PROMPT,
       mcpServers: { "deadroute-planner-tools": mcpServer },
-      tools: [],
-      permissionMode: "bypassPermissions",
-      allowDangerouslySkipPermissions: true,
-      maxTurns: 3,
+      allowedTools: ["mcp__deadroute-planner-tools__output_day_plan"],
       persistSession: false,
     },
   });
@@ -165,7 +197,6 @@ export async function planDay(
       }
     }
   }
-
   tokenTracker.record({
     inputTokens,
     outputTokens,
@@ -197,6 +228,7 @@ export async function planDay(
     sprint: sprint?.name || null,
     sprintDay,
     narrativeBeats: narrativeBeats.map((b) => b.title),
+    officeContext: captured.officeContext || "The team is working on DeadRoute, a navigation app for the zombie apocalypse.",
     activities,
   };
 
@@ -223,10 +255,12 @@ function buildPlannerPrompt(
     lines.push(`Sprint day: ${sprintDay} of 14`);
     if (sprintDay === 1) {
       lines.push("**This is sprint planning day.** Include sprint planning ceremony activities.");
+      lines.push("Include a start_sprint activity for sasha to activate the new sprint.");
     }
     if (sprintDay === 12) {
       lines.push("**Sprint review day.** Include sprint review/demo activities.");
       lines.push("**Sprint retro day.** Include retrospective activities.");
+      lines.push("Include a close_sprint activity for sasha to complete the current sprint.");
     }
     lines.push("");
   }

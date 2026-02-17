@@ -1,0 +1,64 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Generate (full)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/tsx",
+      "args": ["src/index.ts", "generate"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Generate (10 days)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/tsx",
+      "args": ["src/index.ts", "generate", "--days", "3", "--output-mode", "atlassian"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Generate (dry run)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/tsx",
+      "args": ["src/index.ts", "generate", "--dry-run"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Generate (from day N)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/tsx",
+      "args": ["src/index.ts", "generate", "--from-day", "${input:fromDay}"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ],
+  "inputs": [
+    {
+      "id": "fromDay",
+      "type": "promptString",
+      "description": "Day number to resume from"
+    }
+  ]
+}

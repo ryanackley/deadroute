@@ -10,6 +10,7 @@ import type { JiraIssue } from "../types/jira.js";
 import type { ConfluencePage } from "../types/confluence.js";
 import type { Config } from "../config.js";
 import type { TokenTracker } from "../simulation/token-tracker.js";
+import { extractTextFromAdf } from "../utils/adf.js";
 
 export interface RagResult {
   text: string;
@@ -127,14 +128,14 @@ function buildJiraDocument(issue: JiraIssue): string {
     `Reporter: ${issue.reporter} | Assignee: ${issue.assignee || "Unassigned"}`,
     `Sprint: ${issue.sprint || "Backlog"}`,
     "",
-    issue.description,
+    extractTextFromAdf(issue.description),
   ];
 
   if (issue.comments.length > 0) {
     parts.push("", "--- Comments ---");
     for (const c of issue.comments.slice(-5)) {
       // Index last 5 comments
-      parts.push(`${c.author}: ${c.body}`);
+      parts.push(`${c.author}: ${extractTextFromAdf(c.body)}`);
     }
   }
 
@@ -146,13 +147,13 @@ function buildConfluenceDocument(page: ConfluencePage): string {
     `[${page.spaceKey}] ${page.title}`,
     `Author: ${page.author} | Space: ${page.spaceKey}`,
     "",
-    page.body,
+    extractTextFromAdf(page.body),
   ];
 
   if (page.comments.length > 0) {
     parts.push("", "--- Comments ---");
     for (const c of page.comments.slice(-3)) {
-      parts.push(`${c.author}: ${c.body}`);
+      parts.push(`${c.author}: ${extractTextFromAdf(c.body)}`);
     }
   }
 

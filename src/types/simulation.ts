@@ -2,7 +2,8 @@
  * Simulation state types — tracks the world state as we step through days.
  */
 
-import type { IssueStatus, JsmStatus, Sprint } from "./jira.js";
+import type { IssueStatus, JsmStatus, Sprint, JiraIssue } from "./jira.js";
+import type { ConfluencePage } from "./confluence.js";
 
 export type PersonaId =
   | "chad"
@@ -37,7 +38,9 @@ export type ActivityType =
   | "sprint_ceremony"
   | "code_review"
   | "escalate_ticket"
-  | "internal_discussion";
+  | "internal_discussion"
+  | "start_sprint"
+  | "close_sprint";
 
 export interface DayPlan {
   date: string; // YYYY-MM-DD
@@ -45,6 +48,8 @@ export interface DayPlan {
   sprint: string | null; // Current sprint name
   sprintDay: number | null; // Day within the sprint (1-10)
   narrativeBeats: string[]; // Plot beats active this week
+  /** 2-4 sentence "state of the office" brief: product phase, user count, team vibe, key events */
+  officeContext: string;
   activities: Activity[];
 }
 
@@ -75,6 +80,12 @@ export interface SimulationState {
     totalPagesCreated: number;
     ticketsByStatus: Record<string, number>;
   };
+  /** Confluence page IDs by "SPACEKEY::Title" (API mode only) */
+  confluencePageIds?: Record<string, string>;
+  /** Jira issue IDs by key, e.g. "DR-42" → "10001" (API mode only) */
+  jiraIssueIds?: Record<string, string>;
+  /** Sprint name → Jira sprint ID (API mode only) */
+  sprintIds?: Record<string, string>;
 }
 
 export interface NarrativeBeat {
@@ -89,4 +100,19 @@ export interface NarrativeBeat {
 export interface NarrativeSpine {
   companyStartDate: string; // YYYY-MM-DD
   beats: NarrativeBeat[];
+}
+
+export interface SprintOperation {
+  action: "start" | "close" | "move_to_sprint" | "move_to_backlog";
+  sprintName: string;
+  issueKeys?: string[];
+}
+
+export interface ActivityResult {
+  newIssues: JiraIssue[];
+  modifiedKeys: string[];
+  newPages: ConfluencePage[];
+  sprintOperations: SprintOperation[];
+  summary: string;
+  daySummary: string;
 }

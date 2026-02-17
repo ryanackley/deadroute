@@ -1,90 +1,131 @@
 /**
- * Reaction system — round-robin conversation loops.
+ * Reaction system — inline rolling reactions with participation chance.
  *
- * After each day's planned activities, check which personas would react to
- * the generated artifacts, then execute multi-round conversations where
- * reactions can trigger counter-reactions.
+ * After each activity executes, identifyInlineReactions() checks if any
+ * personas would react to the newly created/modified artifacts. Each
+ * reaction is a single-turn interaction (no multi-round conversations).
+ *
+ * Participation is probabilistic: leaders have high engagement in their
+ * domain, individual devs have low engagement outside their own tickets.
  */
 
-import type { PersonaId } from "../types/simulation.js";
-import type { JiraIssue, JiraComment } from "../types/jira.js";
-import type { ConfluencePage } from "../types/confluence.js";
-import type { Config } from "../config.js";
-import type { PersonaProfile } from "../personas/profiles.js";
+import type { PersonaId, ActivityResult } from "../types/simulation.js";
+import type { JiraIssue } from "../types/jira.js";
+import type { ConfluencePage, SpaceKey } from "../types/confluence.js";
 import type { StateManager } from "./state.js";
-import type { ContextBuilder } from "../rag/context-builder.js";
-import type { TokenTracker } from "./token-tracker.js";
-import { getPersona, PERSONAS } from "../personas/profiles.js";
-import { executePersonaActivity } from "../agents/persona-agent.js";
+import { extractTextFromAdf } from "../utils/adf.js";
 
-export interface Reaction {
+export interface InlineReaction {
   reactor: PersonaId;
-  targetKey: string; // Issue key or page ID being reacted to
+  targetType: "jira" | "confluence";
+  targetKey: string; // Issue key or page title
   targetSummary: string;
-  reason: string; // Why this persona would react
+  reason: string;
+  spaceKey?: SpaceKey; // For confluence pages
 }
 
-export interface ReactionResult {
-  issueKey: string;
-  comments: JiraComment[];
-  rounds: number;
-}
+// ─── Participation Chance ────────────────────────────────────────────
 
 /**
- * Determine which personas would react to newly created/modified artifacts.
+ * Probability that a persona will actually react when a rule matches.
+ * ownArea = the artifact is in their domain of responsibility.
+ * otherArea = the artifact is outside their usual scope.
  */
-export function identifyReactions(
-  newIssues: JiraIssue[],
-  modifiedIssueKeys: string[],
-  newPages: ConfluencePage[],
-  stateManager: StateManager
-): Reaction[] {
-  const reactions: Reaction[] = [];
-  const state = stateManager.getState();
+const PARTICIPATION_CHANCE: Record<PersonaId, { ownArea: number; otherArea: number }> = {
+  // Leaders (not CEO) — high participation in their area
+  sasha:   { ownArea: 0.85, otherArea: 0.3 },
+  marcus:  { ownArea: 0.80, otherArea: 0.25 },
+  vanessa: { ownArea: 0.80, otherArea: 0.2 },
+  tammy:   { ownArea: 0.75, otherArea: 0.15 },
+  // Individual devs — low unless it's their own ticket or area of ownership
+  cooper:  { ownArea: 0.4, otherArea: 0.1 },
+  priya:   { ownArea: 0.4, otherArea: 0.1 },
+  raj:     { ownArea: 0.45, otherArea: 0.12 },
+  dana:    { ownArea: 0.35, otherArea: 0.08 },
+  // Support — high for bugs/support, low otherwise
+  tk:      { ownArea: 0.75, otherArea: 0.15 },
+  // CEO — occasional drive-by excitement
+  chad:    { ownArea: 0.2, otherArea: 0.05 },
+};
 
-  for (const issue of newIssues) {
-    const issueReactions = getReactionsForIssue(issue);
-    reactions.push(...issueReactions);
+interface CandidateReaction extends InlineReaction {
+  isOwnArea: boolean;
+}
+
+// ─── Main Entry Point ────────────────────────────────────────────────
+
+/**
+ * Identify which personas would react to the artifacts produced by a single activity.
+ * Returns reactions filtered by participation chance and deduplicated.
+ */
+export function identifyInlineReactions(
+  activityResult: ActivityResult,
+  actingPersona: PersonaId,
+  stateManager: StateManager
+): InlineReaction[] {
+  const candidates: CandidateReaction[] = [];
+
+  // Check new issues
+  for (const issue of activityResult.newIssues) {
+    candidates.push(...getReactionsForIssue(issue));
   }
 
-  // Also check modified tickets (new comments might trigger reactions)
-  for (const key of modifiedIssueKeys) {
-    const ticket = state.tickets[key];
+  // Check modified tickets (e.g., new comments or transitions)
+  for (const key of activityResult.modifiedKeys) {
+    const ticket = stateManager.getState().tickets[key];
     if (!ticket) continue;
 
-    // Simplified: just check if Marcus would review code-related updates
     if (isCodeRelated(ticket.summary) && ticket.assignee !== "marcus") {
-      reactions.push({
+      candidates.push({
         reactor: "marcus",
+        targetType: "jira",
         targetKey: key,
-        targetSummary: ticket.summary,
+        targetSummary: `[${key}] ${ticket.summary}`,
         reason: "Marcus reviews all code-related ticket updates",
+        isOwnArea: true,
       });
     }
   }
 
-  // Deduplicate — one reaction per (reactor, target) pair
+  // Check new Confluence pages
+  for (const page of activityResult.newPages) {
+    candidates.push(...getReactionsForPage(page));
+  }
+
+  // Deduplicate, filter self-reactions, apply participation chance
   const seen = new Set<string>();
-  return reactions.filter((r) => {
-    const key = `${r.reactor}:${r.targetKey}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    // Don't react to your own stuff
-    return true;
+  return candidates.filter((r) => {
+    // No self-reactions
+    if (r.reactor === actingPersona) return false;
+
+    // Deduplicate by (reactor, targetKey)
+    const dedupeKey = `${r.reactor}:${r.targetKey}`;
+    if (seen.has(dedupeKey)) return false;
+    seen.add(dedupeKey);
+
+    // Roll against participation chance
+    const chance = PARTICIPATION_CHANCE[r.reactor];
+    const threshold = r.isOwnArea ? chance.ownArea : chance.otherArea;
+    return Math.random() < threshold;
   });
 }
 
-function getReactionsForIssue(issue: JiraIssue): Reaction[] {
-  const reactions: Reaction[] = [];
+// ─── Issue Reactions ─────────────────────────────────────────────────
+
+function getReactionsForIssue(issue: JiraIssue): CandidateReaction[] {
+  const reactions: CandidateReaction[] = [];
   const reporter = issue.reporter as PersonaId;
 
   // Marcus reviews every code-related ticket
-  if (isCodeRelated(issue.summary + " " + issue.description) && reporter !== "marcus") {
+  const descText = extractTextFromAdf(issue.description);
+  if (isCodeRelated(issue.summary + " " + descText) && reporter !== "marcus") {
     reactions.push({
       reactor: "marcus",
+      targetType: "jira",
       targetKey: issue.key,
       targetSummary: `[${issue.key}] ${issue.summary}`,
       reason: "Marcus reviews all code-related tickets and PRs",
+      isOwnArea: true,
     });
   }
 
@@ -92,9 +133,11 @@ function getReactionsForIssue(issue: JiraIssue): Reaction[] {
   if (issue.project === "DR" && reporter !== "sasha" && issue.type !== "Sub-task") {
     reactions.push({
       reactor: "sasha",
+      targetType: "jira",
       targetKey: issue.key,
       targetSummary: `[${issue.key}] ${issue.summary}`,
       reason: "Sasha triages all new DR tickets for sprint assignment and priority",
+      isOwnArea: true,
     });
   }
 
@@ -105,187 +148,172 @@ function getReactionsForIssue(issue: JiraIssue): Reaction[] {
   ) {
     reactions.push({
       reactor: "tk",
+      targetType: "jira",
       targetKey: issue.key,
       targetSummary: `[${issue.key}] ${issue.summary}`,
       reason: "TK adds user impact context to bugs and support-related issues",
+      isOwnArea: true,
     });
   }
 
   // Vanessa reacts to user-facing issues
   if (
     (issue.labels.some((l) => l.includes("user") || l.includes("ux") || l.includes("growth")) ||
-      issue.description.toLowerCase().includes("user")) &&
+      descText.toLowerCase().includes("user")) &&
     reporter !== "vanessa"
   ) {
     reactions.push({
       reactor: "vanessa",
+      targetType: "jira",
       targetKey: issue.key,
       targetSummary: `[${issue.key}] ${issue.summary}`,
       reason: "Vanessa adds user feedback context to user-facing issues",
+      isOwnArea: true,
     });
   }
 
   // Raj comments on code quality / testing issues
   if (
     (issue.labels.some((l) => l.includes("test") || l.includes("quality") || l.includes("standards")) ||
-      issue.description.toLowerCase().includes("test coverage") ||
-      issue.description.toLowerCase().includes("code quality")) &&
+      descText.toLowerCase().includes("test coverage") ||
+      descText.toLowerCase().includes("code quality")) &&
     reporter !== "raj"
   ) {
     reactions.push({
       reactor: "raj",
+      targetType: "jira",
       targetKey: issue.key,
       targetSummary: `[${issue.key}] ${issue.summary}`,
       reason: "Raj comments on testing and code quality matters",
+      isOwnArea: true,
     });
   }
 
-  // Chad occasionally comments on exciting features (30% chance)
-  if (
-    issue.type === "Story" &&
-    reporter !== "chad" &&
-    Math.random() < 0.3
-  ) {
+  // Chad occasionally gets excited about features
+  if (issue.type === "Story" && reporter !== "chad") {
     reactions.push({
       reactor: "chad",
+      targetType: "jira",
       targetKey: issue.key,
       targetSummary: `[${issue.key}] ${issue.summary}`,
       reason: "Chad is excited about this feature and wants to add his vision",
+      isOwnArea: true, // Chad's ownArea chance is already low (0.2)
     });
+  }
+
+  // Individual devs react to tickets in their technical area (low chance via otherArea)
+  const devAreaPatterns: Record<string, RegExp> = {
+    cooper: /ui|frontend|react|component|css|design/i,
+    priya: /api|database|backend|endpoint|query|server|postgres/i,
+    dana: /mobile|ios|android|design|ux|interface/i,
+  };
+
+  for (const [devId, pattern] of Object.entries(devAreaPatterns)) {
+    if (reporter !== devId && pattern.test(issue.summary + " " + descText)) {
+      reactions.push({
+        reactor: devId as PersonaId,
+        targetType: "jira",
+        targetKey: issue.key,
+        targetSummary: `[${issue.key}] ${issue.summary}`,
+        reason: `${devId} noticed a ticket in their technical area`,
+        isOwnArea: false, // Low chance for individual devs on others' tickets
+      });
+    }
   }
 
   return reactions;
 }
 
-/**
- * Execute a round-robin conversation for a set of reactions on the same ticket.
- */
-export async function executeReactionConversation(
-  reaction: Reaction,
-  existingComments: JiraComment[],
-  stateManager: StateManager,
-  contextBuilder: ContextBuilder,
-  config: Config,
-  tokenTracker: TokenTracker
-): Promise<ReactionResult> {
-  const maxRounds = config.maxReactionRounds;
-  const allComments: JiraComment[] = [];
-  let conversationComments = existingComments.map(
-    (c) => `**${c.author}**: ${c.body}`
-  );
-  const state = stateManager.getState();
-  const date = state.currentDate;
+// ─── Page Reactions ──────────────────────────────────────────────────
 
-  // Track who's in this conversation
-  const participants = new Set<PersonaId>();
-  for (const c of existingComments) {
-    participants.add(c.author as PersonaId);
-  }
-  participants.add(reaction.reactor);
+function getReactionsForPage(page: ConfluencePage): CandidateReaction[] {
+  const reactions: CandidateReaction[] = [];
+  const author = page.author as PersonaId;
 
-  let lastCommenter = reaction.reactor;
-
-  for (let round = 0; round < maxRounds; round++) {
-    // Determine who speaks this round
-    const speaker = round === 0
-      ? reaction.reactor
-      : getNextSpeaker(lastCommenter, participants, reaction.targetKey, stateManager);
-
-    if (!speaker) break; // Nobody wants to respond, conversation ends
-
-    const persona = getPersona(speaker);
-    const reactionContext = await contextBuilder.buildReactionContext(
-      speaker,
-      reaction.targetKey,
-      reaction.targetSummary,
-      conversationComments
-    );
-
-    const activityDesc = round === 0
-      ? `React to ${reaction.targetKey}: ${reaction.reason}`
-      : `Respond to the latest comment on ${reaction.targetKey} in the ongoing conversation`;
-
-    const result = await executePersonaActivity(
-      persona,
-      {
-        time: "12:00", // Reaction time doesn't matter much
-        persona: speaker,
-        type: "comment_ticket",
-        description: activityDesc,
-        relatedKeys: [reaction.targetKey],
-      },
-      reactionContext,
-      config,
-      tokenTracker,
-      "reaction"
-    );
-
-    // Collect generated comments
-    for (const { comment } of result.addedComments) {
-      comment.created = `${date}T${12 + round}:00:00Z`;
-      comment.id = `comment-${Date.now()}-${round}`;
-      allComments.push(comment);
-      conversationComments.push(`**${comment.author}**: ${comment.body}`);
-      lastCommenter = speaker;
-    }
-
-    // If no comment was generated, the persona chose not to respond
-    if (result.addedComments.length === 0) break;
-
-    // After round 1+, add the assignee as potential responder
-    const ticket = state.tickets[reaction.targetKey];
-    if (ticket?.assignee) participants.add(ticket.assignee as PersonaId);
+  // Sasha reviews product docs
+  if (page.spaceKey === "PROD" && author !== "sasha") {
+    reactions.push({
+      reactor: "sasha",
+      targetType: "confluence",
+      targetKey: page.title,
+      targetSummary: `[${page.spaceKey}] ${page.title}`,
+      reason: "Sasha reviews product documentation for roadmap alignment",
+      spaceKey: page.spaceKey,
+      isOwnArea: true,
+    });
   }
 
-  return {
-    issueKey: reaction.targetKey,
-    comments: allComments,
-    rounds: allComments.length,
+  // Marcus reviews engineering docs
+  if (page.spaceKey === "ENG" && author !== "marcus") {
+    reactions.push({
+      reactor: "marcus",
+      targetType: "confluence",
+      targetKey: page.title,
+      targetSummary: `[${page.spaceKey}] ${page.title}`,
+      reason: "Marcus reviews engineering documentation for accuracy",
+      spaceKey: page.spaceKey,
+      isOwnArea: true,
+    });
+  }
+
+  // Vanessa reacts to marketing and user-related pages
+  if (
+    (page.spaceKey === "MKT" ||
+      page.labels.some((l) => l.includes("user") || l.includes("growth") || l.includes("brand"))) &&
+    author !== "vanessa"
+  ) {
+    reactions.push({
+      reactor: "vanessa",
+      targetType: "confluence",
+      targetKey: page.title,
+      targetSummary: `[${page.spaceKey}] ${page.title}`,
+      reason: "Vanessa adds user perspective to marketing and user-related docs",
+      spaceKey: page.spaceKey,
+      isOwnArea: true,
+    });
+  }
+
+  // Tammy reacts to ops pages
+  if (page.spaceKey === "OPS" && author !== "tammy") {
+    reactions.push({
+      reactor: "tammy",
+      targetType: "confluence",
+      targetKey: page.title,
+      targetSummary: `[${page.spaceKey}] ${page.title}`,
+      reason: "Tammy reviews operations docs for accuracy and completeness",
+      spaceKey: page.spaceKey,
+      isOwnArea: true,
+    });
+  }
+
+  // Individual devs react to ENG pages in their technical area
+  const devPagePatterns: Record<string, RegExp> = {
+    cooper: /frontend|react|ui|component|css/i,
+    priya: /backend|database|api|server|postgres|migration/i,
+    raj: /test|ci|deploy|infra|standard|quality/i,
+    dana: /mobile|design|ux|interface|wireframe/i,
   };
+
+  if (page.spaceKey === "ENG") {
+    for (const [devId, pattern] of Object.entries(devPagePatterns)) {
+      if (author !== devId && pattern.test(page.title + " " + extractTextFromAdf(page.body).substring(0, 500))) {
+        reactions.push({
+          reactor: devId as PersonaId,
+          targetType: "confluence",
+          targetKey: page.title,
+          targetSummary: `[${page.spaceKey}] ${page.title}`,
+          reason: `${devId} noticed an engineering doc in their area`,
+          spaceKey: page.spaceKey,
+          isOwnArea: true, // It's their technical area, use ownArea (still low for devs)
+        });
+      }
+    }
+  }
+
+  return reactions;
 }
 
-/**
- * Determine who speaks next in a conversation.
- * Simple heuristic: the person most likely to respond to the last commenter.
- */
-function getNextSpeaker(
-  lastCommenter: PersonaId,
-  participants: Set<PersonaId>,
-  issueKey: string,
-  stateManager: StateManager
-): PersonaId | null {
-  const state = stateManager.getState();
-  const ticket = state.tickets[issueKey];
-  if (!ticket) return null;
-
-  // Likely responders based on role
-  const responders: PersonaId[] = [];
-
-  // The assignee should respond if they haven't spoken last
-  if (ticket.assignee && ticket.assignee !== lastCommenter) {
-    responders.push(ticket.assignee as PersonaId);
-  }
-
-  // Marcus responds to dev discussions
-  if (lastCommenter !== "marcus" && isCodeRelated(ticket.summary)) {
-    responders.push("marcus");
-  }
-
-  // Sasha responds to prioritization discussions
-  if (lastCommenter !== "sasha" && participants.has("sasha")) {
-    responders.push("sasha");
-  }
-
-  // The reporter responds if someone commented on their ticket
-  const reporterCandidates = Object.values(PERSONAS)
-    .filter((p) => participants.has(p.id) && p.id !== lastCommenter)
-    .map((p) => p.id);
-  responders.push(...reporterCandidates);
-
-  // 50% chance any given person responds (keeps conversations from being too long)
-  const filtered = responders.filter(() => Math.random() < 0.5);
-  return filtered[0] || null;
-}
+// ─── Helpers ─────────────────────────────────────────────────────────
 
 function isCodeRelated(text: string): boolean {
   const codeTerms = [

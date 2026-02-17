@@ -16,12 +16,15 @@ import pLimit from "p-limit";
 import chalk from "chalk";
 
 import type { Config } from "../config.js";
-import type { JiraIssue, JiraComment } from "../types/jira.js";
+import type { JiraIssue } from "../types/jira.js";
 import type { ConfluencePage } from "../types/confluence.js";
-import type { Activity, DayPlan, PersonaId } from "../types/simulation.js";
+import type { Activity, ActivityResult } from "../types/simulation.js";
+import type { IWriter } from "../output/writer-interface.js";
 import { StateManager } from "./state.js";
 import { TokenTracker } from "./token-tracker.js";
 import { OutputWriter } from "../output/writer.js";
+import { AtlassianWriter } from "../output/atlassian-writer.js";
+import { loadAtlassianConfig, validateAtlassianConfig } from "../types/atlassian-config.js";
 import { RagIndex } from "../rag/index.js";
 import { ContextBuilder } from "../rag/context-builder.js";
 import {
@@ -35,7 +38,8 @@ import { loadNarrativeSpine, getBeatsForWeek, formatBeatsForPrompt } from "../na
 import { planDay } from "../agents/master-planner.js";
 import { executePersonaActivity } from "../agents/persona-agent.js";
 import { getPersona } from "../personas/profiles.js";
-import { identifyReactions, executeReactionConversation } from "./reactions.js";
+import { identifyInlineReactions, type InlineReaction } from "./reactions.js";
+import { TimestampLedger } from "./timestamp-ledger.js";
 
 /** How many recent days to include in the rolling summary for the master planner. */
 const ROLLING_SUMMARY_DAYS = 5;
@@ -52,6 +56,7 @@ export async function runSimulation(config: Config, options: EngineOptions = {})
   console.log(`Start date: ${config.startDate}`);
   console.log(`Simulation days: ${config.simulationDays}`);
   console.log(`Output: ${config.outputDir}`);
+  console.log(`Output mode: ${config.outputMode}`);
   console.log(`Planner model: ${config.plannerModel}`);
   console.log(`Persona model: ${config.personaModel}`);
   console.log(`Dry run: ${options.dryRun || false}\n`);
@@ -60,7 +65,26 @@ export async function runSimulation(config: Config, options: EngineOptions = {})
   const stateManager = await StateManager.loadOrCreate(config.outputDir, config.startDate);
   const tokenTracker = new TokenTracker(config);
   await tokenTracker.loadExisting();
-  const writer = new OutputWriter(config.outputDir);
+  const ledger = new TimestampLedger(config.outputDir);
+  await ledger.init();
+
+  let writer: IWriter;
+  if (config.outputMode === "atlassian") {
+    const atlassianConfig = await loadAtlassianConfig();
+    const errors = validateAtlassianConfig(atlassianConfig);
+    if (errors.length > 0) {
+      console.error(chalk.red("Atlassian config errors:"));
+      for (const err of errors) {
+        console.error(chalk.red(`  - ${err}`));
+      }
+      process.exit(1);
+    }
+    const atlassianWriter = new AtlassianWriter(atlassianConfig);
+    await atlassianWriter.init(stateManager.getState());
+    writer = atlassianWriter;
+  } else {
+    writer = new OutputWriter(config.outputDir);
+  }
   const sprints = generateSprintCalendar(config.startDate);
   const narrativeBeats = await loadNarrativeSpine();
 
@@ -157,7 +181,7 @@ export async function runSimulation(config: Config, options: EngineOptions = {})
       continue;
     }
 
-    // === PHASE 2: EXECUTE ACTIVITIES ===
+    // === PHASE 2: EXECUTE ACTIVITIES (with inline reactions) ===
     const dayNewIssues: JiraIssue[] = [];
     const dayModifiedKeys: string[] = [];
     const dayNewPages: ConfluencePage[] = [];
@@ -175,7 +199,9 @@ export async function runSimulation(config: Config, options: EngineOptions = {})
           contextBuilder,
           config,
           tokenTracker,
-          sprint
+          sprint,
+          dayPlan.officeContext,
+          ledger
         );
 
         dayNewIssues.push(...result.newIssues);
@@ -189,55 +215,42 @@ export async function runSimulation(config: Config, options: EngineOptions = {})
         }
 
         console.log(chalk.dim(`    ${activity.time} [${activity.persona}] ${result.summary}`));
+
+        // === INLINE REACTIONS ===
+        if (config.enableReactions && contextBuilder) {
+          const reactions = identifyInlineReactions(result, activity.persona, stateManager);
+          const capped = reactions.slice(0, config.maxReactionsPerActivity);
+
+          for (const reaction of capped) {
+            try {
+              const reactionResult = await executeInlineReaction(
+                reaction,
+                dateStr,
+                stateManager,
+                writer,
+                contextBuilder,
+                config,
+                tokenTracker,
+                dayPlan.officeContext,
+                ledger
+              );
+
+              dayModifiedKeys.push(...reactionResult.modifiedKeys);
+              if (reactionResult.summary) {
+                activitySummaries.push(reactionResult.summary);
+                console.log(chalk.dim(`      ↳ [${reaction.reactor}] ${reactionResult.summary}`));
+              }
+            } catch (err) {
+              console.error(chalk.red(`      Reaction error: ${err}`));
+            }
+          }
+        }
       } catch (err) {
         console.error(chalk.red(`    Error executing activity: ${err}`));
       }
     }
 
-    // === PHASE 3: REACTIONS ===
-    if (config.enableReactions && (dayNewIssues.length > 0 || dayModifiedKeys.length > 0)) {
-      const reactions = identifyReactions(dayNewIssues, dayModifiedKeys, dayNewPages, stateManager);
-      console.log(chalk.dim(`  ${reactions.length} reactions identified`));
-
-      for (const reaction of reactions) {
-        if (!contextBuilder) continue;
-
-        try {
-          // Get existing comments for this ticket
-          const existingIssue = await writer.readJiraIssue(reaction.targetKey, stateManager.getState());
-          const existingComments = existingIssue?.comments || [];
-
-          const result = await executeReactionConversation(
-            reaction,
-            existingComments,
-            stateManager,
-            contextBuilder,
-            config,
-            tokenTracker
-          );
-
-          // Write reaction comments to disk
-          for (const comment of result.comments) {
-            await writer.appendComment(reaction.targetKey, comment, stateManager.getState());
-            stateManager.recordComment();
-            stateManager.logActivity(
-              comment.author as PersonaId,
-              `Commented on ${reaction.targetKey}`
-            );
-          }
-
-          if (result.rounds > 0) {
-            console.log(
-              chalk.dim(`    💬 ${reaction.reactor} → ${reaction.targetKey}: ${result.rounds} round(s)`)
-            );
-          }
-        } catch (err) {
-          console.error(chalk.red(`    Reaction error: ${err}`));
-        }
-      }
-    }
-
-    // === PHASE 4: END OF DAY ===
+    // === PHASE 3: END OF DAY ===
     // Build day summary and add to rolling window
     const daySummaryText = buildDaySummary(
       dateStr,
@@ -255,6 +268,10 @@ export async function runSimulation(config: Config, options: EngineOptions = {})
     }
 
     const tokenDaySummary = tokenTracker.endDay();
+    // Sync API writer state (page/issue ID maps) before persisting
+    if (writer instanceof AtlassianWriter) {
+      writer.syncToState(stateManager.getState());
+    }
     await stateManager.save();
     await tokenTracker.save();
 
@@ -288,24 +305,18 @@ export async function runSimulation(config: Config, options: EngineOptions = {})
 
 // ─── Activity Execution ─────────────────────────────────────────────
 
-interface ActivityResult {
-  newIssues: JiraIssue[];
-  modifiedKeys: string[];
-  newPages: ConfluencePage[];
-  summary: string;
-  daySummary: string;
-}
-
 async function executeActivity(
   activity: Activity,
   date: string,
   stateManager: StateManager,
-  writer: OutputWriter,
+  writer: IWriter,
   rag: RagIndex | null,
   contextBuilder: ContextBuilder | null,
   config: Config,
   tokenTracker: TokenTracker,
-  sprint: SprintDefinition | null
+  sprint: SprintDefinition | null,
+  officeContext: string,
+  ledger: TimestampLedger
 ): Promise<ActivityResult> {
   const persona = getPersona(activity.persona);
   const state = stateManager.getState();
@@ -314,36 +325,45 @@ async function executeActivity(
   // Build context
   let context = "";
   if (contextBuilder) {
-    const ctx = await contextBuilder.buildContext(activity.persona, activity);
+    const ctx = await contextBuilder.buildContext(activity.persona, activity, officeContext);
     context = ctx.assembled;
   } else {
     // Minimal context without RAG
-    context = `Date: ${date}\nYour role: ${persona.role}\nSprint: ${sprint?.name || "none"}`;
+    context = `Date: ${date}\nYour role: ${persona.role}\nSprint: ${sprint?.name || "none"}\n\n${officeContext}`;
   }
 
   // Execute persona agent
-  const result = await executePersonaActivity(persona, activity, context, config, tokenTracker);
+  const result = await executePersonaActivity(
+    persona, activity, context, config, tokenTracker,
+    "persona_generation", writer, state
+  );
 
   const actResult: ActivityResult = {
     newIssues: [],
     modifiedKeys: [],
     newPages: [],
+    sprintOperations: [],
     summary: "",
     daySummary: result.daySummary,
   };
 
   // Process created issues
   for (const issue of result.createdIssues) {
-    issue.key = stateManager.allocateTicketKey(issue.project);
+    // In file mode, pre-allocate keys; in API mode, Jira assigns them
+    if (config.outputMode !== "atlassian") {
+      issue.key = stateManager.allocateTicketKey(issue.project);
+    }
     issue.created = timestamp;
     issue.updated = timestamp;
     if (sprint && issue.project === "DR") {
       issue.sprint = sprint.name;
     }
-    await writer.writeJiraIssue(issue, state);
+    const writeResult = await writer.writeJiraIssue(issue, state, activity.persona);
+    if (writeResult.key) issue.key = writeResult.key;
     stateManager.registerTicket(issue);
     stateManager.logActivity(activity.persona, `Created ${issue.key}: ${issue.summary}`);
     actResult.newIssues.push(issue);
+    await ledger.record({ event: "issue_created", key: issue.key, ts: timestamp, actor: activity.persona });
 
     // Index in RAG
     if (rag) await rag.indexJiraIssue(issue);
@@ -352,35 +372,103 @@ async function executeActivity(
   // Process comments
   for (const { issueKey, comment } of result.addedComments) {
     if (!state.tickets[issueKey]) continue; // Skip if ticket doesn't exist
-    comment.id = `comment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    if (config.outputMode !== "atlassian") {
+      comment.id = `comment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    }
     comment.created = timestamp;
-    await writer.appendComment(issueKey, comment, state);
+    const writeResult = await writer.appendComment(issueKey, comment, state, activity.persona);
+    if (writeResult.id) comment.id = writeResult.id;
     stateManager.recordComment();
     stateManager.logActivity(activity.persona, `Commented on ${issueKey}`);
     actResult.modifiedKeys.push(issueKey);
+    await ledger.record({ event: "comment_added", key: issueKey, commentId: comment.id, ts: timestamp, actor: activity.persona });
+    await ledger.record({ event: "issue_updated", key: issueKey, ts: timestamp, actor: activity.persona });
   }
 
   // Process transitions
   for (const { issueKey, newStatus, by } of result.transitions) {
     if (!state.tickets[issueKey]) continue;
-    await writer.updateJiraIssueStatus(issueKey, newStatus, by, timestamp, state);
+    const oldStatus = state.tickets[issueKey].status;
+    await writer.updateJiraIssueStatus(issueKey, newStatus, by, timestamp, state, activity.persona);
     stateManager.updateTicketStatus(issueKey, newStatus);
     stateManager.logActivity(activity.persona, `Moved ${issueKey} to ${newStatus}`);
     actResult.modifiedKeys.push(issueKey);
+    await ledger.record({ event: "status_change", key: issueKey, from: oldStatus, to: newStatus, ts: timestamp, actor: activity.persona });
+    await ledger.record({ event: "issue_updated", key: issueKey, ts: timestamp, actor: activity.persona });
+    if (["Done", "Resolved", "Closed"].includes(newStatus)) {
+      await ledger.record({ event: "issue_resolved", key: issueKey, ts: timestamp, actor: activity.persona });
+    }
   }
 
   // Process pages
   for (const page of result.createdPages) {
-    page.id = stateManager.allocatePageId();
+    if (config.outputMode !== "atlassian") {
+      page.id = stateManager.allocatePageId();
+    }
     page.created = timestamp;
     page.updated = timestamp;
-    await writer.writeConfluencePage(page);
+    const writeResult = await writer.writeConfluencePage(page, activity.persona);
+    if (writeResult.id) page.id = writeResult.id;
     stateManager.recordPage();
     stateManager.logActivity(activity.persona, `Created page: ${page.title}`);
     actResult.newPages.push(page);
 
     // Index in RAG
     if (rag) await rag.indexConfluencePage(page);
+  }
+
+  // Process Confluence comments
+  for (const { spaceKey, pageTitle, comment } of result.confluenceComments) {
+    if (config.outputMode !== "atlassian") {
+      comment.id = `conf-comment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+    comment.created = timestamp;
+    try {
+      const writeResult = await writer.appendConfluenceComment(spaceKey, pageTitle, comment, activity.persona);
+      if (writeResult.id) comment.id = writeResult.id;
+      stateManager.recordComment();
+      stateManager.logActivity(activity.persona, `Commented on page: ${pageTitle}`);
+    } catch (err) {
+      console.error(chalk.dim(`    Could not add Confluence comment to "${pageTitle}": ${err}`));
+    }
+  }
+
+  // Process sprint operations
+  for (const sprintOp of result.sprintOperations) {
+    try {
+      if (sprintOp.action === "start") {
+        await writer.startSprint(sprintOp.sprintName, state, activity.persona);
+        if (state.currentSprint && state.currentSprint.name === sprintOp.sprintName) {
+          state.currentSprint.state = "active";
+        }
+        stateManager.logActivity(activity.persona, `Started ${sprintOp.sprintName}`);
+      } else if (sprintOp.action === "close") {
+        await writer.closeSprint(sprintOp.sprintName, state, activity.persona);
+        if (state.currentSprint && state.currentSprint.name === sprintOp.sprintName) {
+          state.currentSprint.state = "closed";
+        }
+        stateManager.logActivity(activity.persona, `Completed ${sprintOp.sprintName}`);
+      } else if (sprintOp.action === "move_to_sprint" && sprintOp.issueKeys?.length) {
+        await writer.moveToSprint(sprintOp.issueKeys, sprintOp.sprintName, state, activity.persona);
+        for (const key of sprintOp.issueKeys) {
+          if (state.tickets[key]) {
+            state.tickets[key].sprint = sprintOp.sprintName;
+          }
+        }
+        stateManager.logActivity(activity.persona, `Moved ${sprintOp.issueKeys.join(", ")} to ${sprintOp.sprintName}`);
+      } else if (sprintOp.action === "move_to_backlog" && sprintOp.issueKeys?.length) {
+        await writer.moveToBacklog(sprintOp.issueKeys, state, activity.persona);
+        for (const key of sprintOp.issueKeys) {
+          if (state.tickets[key]) {
+            state.tickets[key].sprint = null;
+          }
+        }
+        stateManager.logActivity(activity.persona, `Moved ${sprintOp.issueKeys.join(", ")} to backlog`);
+      }
+      actResult.sprintOperations.push(sprintOp);
+    } catch (err) {
+      console.error(chalk.red(`    Sprint operation error: ${err}`));
+    }
   }
 
   // Build summary
@@ -391,17 +479,143 @@ async function executeActivity(
   if (result.addedComments.length > 0) {
     parts.push(`${result.addedComments.length} comment(s)`);
   }
+  if (result.confluenceComments.length > 0) {
+    parts.push(`${result.confluenceComments.length} page comment(s)`);
+  }
   if (result.transitions.length > 0) {
     parts.push(`${result.transitions.length} transition(s)`);
   }
   if (actResult.newPages.length > 0) {
     parts.push(`+${actResult.newPages.length} page(s)`);
   }
+  if (actResult.sprintOperations.length > 0) {
+    parts.push(`${actResult.sprintOperations.map((op) => `${op.action} ${op.sprintName}`).join(", ")}`);
+  }
   actResult.summary = parts.length > 0
     ? `${activity.type}: ${parts.join(", ")}`
     : `${activity.type}: (no artifacts)`;
 
   return actResult;
+}
+
+// ─── Inline Reaction Execution ───────────────────────────────────────
+
+interface ReactionArtifactResult {
+  modifiedKeys: string[];
+  summary: string;
+}
+
+async function executeInlineReaction(
+  reaction: InlineReaction,
+  date: string,
+  stateManager: StateManager,
+  writer: IWriter,
+  contextBuilder: ContextBuilder,
+  config: Config,
+  tokenTracker: TokenTracker,
+  officeContext: string | undefined,
+  ledger: TimestampLedger
+): Promise<ReactionArtifactResult> {
+  const persona = getPersona(reaction.reactor);
+  const state = stateManager.getState();
+  const timestamp = `${date}T12:00:00Z`;
+
+  // Build reaction context — instructs agent to read artifact then decide
+  const context = await contextBuilder.buildReactionContext(
+    reaction.reactor,
+    reaction.targetType,
+    reaction.targetKey,
+    reaction.targetSummary,
+    reaction.reason,
+    reaction.spaceKey,
+    officeContext
+  );
+
+  const activityDesc = reaction.targetType === "jira"
+    ? `React to ticket ${reaction.targetKey}: ${reaction.reason}. Read the ticket, then either add an emoji reaction or a single comment in character.`
+    : `React to Confluence page "${reaction.targetSummary}": ${reaction.reason}. Read the page, then either add an emoji reaction or a single comment in character.`;
+
+  const activity: Activity = {
+    time: "12:00",
+    persona: reaction.reactor,
+    type: "comment_ticket",
+    description: activityDesc,
+    relatedKeys: [reaction.targetKey],
+  };
+
+  const result = await executePersonaActivity(
+    persona, activity, context, config, tokenTracker,
+    "reaction", writer, state
+  );
+
+  const modifiedKeys: string[] = [];
+  const summaryParts: string[] = [];
+
+  // Process comments generated by the reaction
+  for (const { issueKey, comment } of result.addedComments) {
+    if (!state.tickets[issueKey]) continue;
+    if (config.outputMode !== "atlassian") {
+      comment.id = `comment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+    comment.created = timestamp;
+    const writeResult = await writer.appendComment(issueKey, comment, state, reaction.reactor);
+    if (writeResult.id) comment.id = writeResult.id;
+    stateManager.recordComment();
+    stateManager.logActivity(reaction.reactor, `Commented on ${issueKey}`);
+    modifiedKeys.push(issueKey);
+  }
+
+  // Process transitions the reactor might make
+  for (const { issueKey, newStatus, by } of result.transitions) {
+    if (!state.tickets[issueKey]) continue;
+    await writer.updateJiraIssueStatus(issueKey, newStatus, by, timestamp, state, reaction.reactor);
+    stateManager.updateTicketStatus(issueKey, newStatus);
+    stateManager.logActivity(reaction.reactor, `Moved ${issueKey} to ${newStatus}`);
+    modifiedKeys.push(issueKey);
+  }
+
+  // Process emoji reactions
+  for (const emoji of result.emojiReactions) {
+    try {
+      if (emoji.targetType === "jira_comment" && emoji.commentId) {
+        await writer.addReactionToComment(emoji.targetKey, emoji.commentId, emoji.emoji, reaction.reactor, state, reaction.reactor);
+        stateManager.logActivity(reaction.reactor, `Reacted ${emoji.emoji} on ${emoji.targetKey}`);
+      } else if (emoji.targetType === "confluence_page" && emoji.spaceKey) {
+        await writer.addReactionToPage(emoji.spaceKey, emoji.targetKey, emoji.emoji, reaction.reactor, reaction.reactor);
+        stateManager.logActivity(reaction.reactor, `Reacted ${emoji.emoji} on page "${emoji.targetKey}"`);
+      }
+    } catch {
+      // Silently skip failed emoji reactions (e.g., comment not found)
+    }
+  }
+
+  // Process Confluence comments from reactions
+  for (const { spaceKey, pageTitle, comment } of result.confluenceComments) {
+    if (config.outputMode !== "atlassian") {
+      comment.id = `conf-comment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+    comment.created = timestamp;
+    try {
+      const writeResult = await writer.appendConfluenceComment(spaceKey, pageTitle, comment, reaction.reactor);
+      if (writeResult.id) comment.id = writeResult.id;
+      stateManager.recordComment();
+      stateManager.logActivity(reaction.reactor, `Commented on page: ${pageTitle}`);
+    } catch {
+      // Page may not exist; silently skip
+    }
+  }
+
+  // Build summary
+  if (result.addedComments.length > 0) summaryParts.push(`${result.addedComments.length} comment(s)`);
+  if (result.confluenceComments.length > 0) summaryParts.push(`${result.confluenceComments.length} page comment(s)`);
+  if (result.transitions.length > 0) summaryParts.push(`${result.transitions.length} transition(s)`);
+  if (result.emojiReactions.length > 0) summaryParts.push(`${result.emojiReactions.map((r) => r.emoji).join("")}`);
+
+  const summary = summaryParts.length > 0
+    ? `reaction on ${reaction.targetKey}: ${summaryParts.join(", ")}`
+    : "";
+
+  return { modifiedKeys, summary };
 }
 
 // ─── Summary Builders ───────────────────────────────────────────────

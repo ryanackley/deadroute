@@ -7,7 +7,7 @@ export type SpaceKey = "PROD" | "ENG" | "OPS" | "MKT";
 export interface ConfluenceComment {
   id: string;
   author: string;
-  body: string;
+  body: object; // ADF document
   created: string; // ISO 8601
 }
 
@@ -16,12 +16,13 @@ export interface ConfluencePage {
   spaceKey: SpaceKey;
   title: string;
   author: string;
-  body: string; // Markdown or ADF content
+  body: object; // ADF document
   parentTitle: string | null; // For page hierarchy
   labels: string[];
   created: string; // ISO 8601
   updated: string; // ISO 8601
   comments: ConfluenceComment[];
+  reactions: { emoji: string; author: string }[];
   // Cross-references to Jira
   linkedJiraKeys: string[];
 }

@@ -12,18 +12,31 @@ import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import type { Config } from "../config.js";
 import type { PersonaProfile } from "../personas/profiles.js";
-import type { Activity, PersonaId } from "../types/simulation.js";
+import type { Activity, PersonaId, SimulationState, SprintOperation } from "../types/simulation.js";
 import type { TokenTracker } from "../simulation/token-tracker.js";
 import type { JiraIssue, JiraComment, IssueStatus } from "../types/jira.js";
-import type { ConfluencePage, SpaceKey } from "../types/confluence.js";
+import type { ConfluencePage, ConfluenceComment, SpaceKey } from "../types/confluence.js";
+import type { IWriter } from "../output/writer-interface.js";
+import { adfToolSchema, extractTextFromAdf } from "../utils/adf.js";
 
 // ─── Result Types ────────────────────────────────────────────────────
+
+export interface EmojiReaction {
+  targetType: "jira_comment" | "confluence_page";
+  targetKey: string;
+  emoji: string;
+  commentId?: string;
+  spaceKey?: string;
+}
 
 export interface PersonaResult {
   createdIssues: JiraIssue[];
   addedComments: { issueKey: string; comment: JiraComment }[];
+  confluenceComments: { spaceKey: string; pageTitle: string; comment: ConfluenceComment }[];
   transitions: { issueKey: string; newStatus: IssueStatus; by: string }[];
   createdPages: ConfluencePage[];
+  emojiReactions: EmojiReaction[];
+  sprintOperations: SprintOperation[];
   daySummary: string;
   inputTokens: number;
   outputTokens: number;
@@ -59,6 +72,14 @@ You are roleplaying as this person. Use the provided tools to take actions:
 - Use add_comment to comment on existing tickets
 - Use transition_ticket to move tickets between statuses
 - Use create_confluence_page to create documentation
+- Use add_confluence_comment to comment on existing Confluence pages
+- Use get_jira_ticket to look up details of an existing ticket
+- Use get_confluence_page to look up an existing Confluence page
+- Use react_to_artifact to add an emoji reaction to a comment or page, or indicate you'll leave a full comment
+- Use start_sprint to activate/start a sprint
+- Use close_sprint to complete/close a sprint
+- Use move_to_sprint to pull issues from the backlog into a sprint
+- Use move_to_backlog to drop issues from a sprint back to the backlog
 
 Write ALL content in character — your voice, your style, your quirks.
 
@@ -71,7 +92,12 @@ IMPORTANT: Only reference ticket keys that exist in the context provided to you.
 
 const MAX_TOOL_ROUNDS = 10;
 
-function createPersonaToolServer(personaId: PersonaId, result: PersonaResult) {
+function createPersonaToolServer(
+  personaId: PersonaId,
+  result: PersonaResult,
+  writer?: IWriter,
+  state?: SimulationState
+) {
   const personaTools = [
     tool(
       "create_jira_ticket",
@@ -80,7 +106,7 @@ function createPersonaToolServer(personaId: PersonaId, result: PersonaResult) {
         project: z.enum(["DR", "SUP"]).describe("Project key. DR for software development, SUP for customer support."),
         type: z.enum(["Epic", "Story", "Task", "Bug", "Sub-task"]),
         summary: z.string().describe("Short title for the ticket, written in your voice."),
-        description: z.string().describe("Full description of the issue, written in your voice and style."),
+        description: adfToolSchema.describe("Full description of the issue in ADF format, written in your voice and style."),
         priority: z.enum(["Highest", "High", "Medium", "Low", "Lowest"]),
         assignee: z.enum(["chad", "vanessa", "tammy", "sasha", "marcus", "cooper", "priya", "raj", "dana", "tk"]).optional().describe("Who should work on this. Use persona ID."),
         labels: z.array(z.string()).optional().describe("Labels like 'routing', 'mobile', 'ux', 'critical-safety', etc."),
@@ -98,7 +124,7 @@ function createPersonaToolServer(personaId: PersonaId, result: PersonaResult) {
           priority: args.priority,
           status: "To Do",
           summary: args.summary,
-          description: args.description,
+          description: args.description as object,
           reporter: personaId,
           assignee: args.assignee || null,
           labels: args.labels || [],
@@ -131,7 +157,7 @@ function createPersonaToolServer(personaId: PersonaId, result: PersonaResult) {
       "Add a comment to an existing Jira issue. Write in your voice and style.",
       {
         issueKey: z.string().describe("The ticket key (e.g., 'DR-42' or 'SUP-15')."),
-        body: z.string().describe("Your comment, written in character."),
+        body: adfToolSchema.describe("Your comment in ADF format, written in character."),
       },
       async (args) => {
         result.addedComments.push({
@@ -139,8 +165,9 @@ function createPersonaToolServer(personaId: PersonaId, result: PersonaResult) {
           comment: {
             id: "",
             author: personaId,
-            body: args.body,
+            body: args.body as object,
             created: "",
+            reactions: [],
           },
         });
         return {
@@ -180,7 +207,7 @@ function createPersonaToolServer(personaId: PersonaId, result: PersonaResult) {
       {
         spaceKey: z.enum(["PROD", "ENG", "OPS", "MKT"]).describe("PROD=Product, ENG=Engineering, OPS=Operations, MKT=Marketing."),
         title: z.string().describe("Page title."),
-        body: z.string().describe("Page content in Markdown. Include headers, lists, tables, code blocks as appropriate."),
+        body: adfToolSchema.describe("Page content in ADF format. Include headings, paragraphs, lists, tables, code blocks, panels, and task lists as appropriate."),
         parentTitle: z.string().optional().describe("Title of the parent page if this is a child page."),
         labels: z.array(z.string()).optional().describe("Page labels/tags."),
         linkedJiraKeys: z.array(z.string()).optional().describe("Jira issue keys referenced in this page."),
@@ -191,12 +218,13 @@ function createPersonaToolServer(personaId: PersonaId, result: PersonaResult) {
           spaceKey: args.spaceKey as SpaceKey,
           title: args.title,
           author: personaId,
-          body: args.body,
+          body: args.body as object,
           parentTitle: args.parentTitle || null,
           labels: args.labels || [],
           created: "",
           updated: "",
           comments: [],
+          reactions: [],
           linkedJiraKeys: args.linkedJiraKeys || [],
         };
         result.createdPages.push(page);
@@ -205,6 +233,92 @@ function createPersonaToolServer(personaId: PersonaId, result: PersonaResult) {
             type: "text" as const,
             text: `Page "${args.title}" created in ${args.spaceKey} space.`,
           }],
+        };
+      }
+    ),
+
+    tool(
+      "add_confluence_comment",
+      "Add a comment to an existing Confluence page. Write in your voice and style.",
+      {
+        spaceKey: z.enum(["PROD", "ENG", "OPS", "MKT"]).describe("The Confluence space key."),
+        pageTitle: z.string().describe("The exact title of the page to comment on."),
+        body: adfToolSchema.describe("Your comment in ADF format, written in character."),
+      },
+      async (args) => {
+        const comment: ConfluenceComment = {
+          id: "",
+          author: personaId,
+          body: args.body as object,
+          created: "",
+        };
+        result.confluenceComments.push({
+          spaceKey: args.spaceKey,
+          pageTitle: args.pageTitle,
+          comment,
+        });
+        return {
+          content: [{
+            type: "text" as const,
+            text: `Comment added to page "${args.pageTitle}" in ${args.spaceKey} space.`,
+          }],
+        };
+      }
+    ),
+
+    tool(
+      "start_sprint",
+      "Activate/start the current sprint. Only use when explicitly told to start a sprint.",
+      {
+        sprintName: z.string().describe("The sprint name to start (e.g., 'Sprint 5')."),
+      },
+      async (args) => {
+        result.sprintOperations.push({ action: "start", sprintName: args.sprintName });
+        return {
+          content: [{ type: "text" as const, text: `Sprint "${args.sprintName}" started.` }],
+        };
+      }
+    ),
+
+    tool(
+      "close_sprint",
+      "Complete/close the current sprint. Only use when explicitly told to close a sprint.",
+      {
+        sprintName: z.string().describe("The sprint name to close (e.g., 'Sprint 5')."),
+      },
+      async (args) => {
+        result.sprintOperations.push({ action: "close", sprintName: args.sprintName });
+        return {
+          content: [{ type: "text" as const, text: `Sprint "${args.sprintName}" completed.` }],
+        };
+      }
+    ),
+
+    tool(
+      "move_to_sprint",
+      "Move one or more existing issues into a sprint. Use during sprint planning to pull items from the backlog.",
+      {
+        sprintName: z.string().describe("The sprint name to move issues into (e.g., 'Sprint 5')."),
+        issueKeys: z.array(z.string()).describe("Issue keys to move (e.g., ['DR-10', 'DR-15'])."),
+      },
+      async (args) => {
+        result.sprintOperations.push({ action: "move_to_sprint", sprintName: args.sprintName, issueKeys: args.issueKeys });
+        return {
+          content: [{ type: "text" as const, text: `Moved ${args.issueKeys.join(", ")} to ${args.sprintName}.` }],
+        };
+      }
+    ),
+
+    tool(
+      "move_to_backlog",
+      "Move one or more issues from a sprint back to the backlog. Use to descope items from the current sprint.",
+      {
+        issueKeys: z.array(z.string()).describe("Issue keys to move to backlog (e.g., ['DR-10', 'DR-15'])."),
+      },
+      async (args) => {
+        result.sprintOperations.push({ action: "move_to_backlog", sprintName: "Backlog", issueKeys: args.issueKeys });
+        return {
+          content: [{ type: "text" as const, text: `Moved ${args.issueKeys.join(", ")} to backlog.` }],
         };
       }
     ),
@@ -222,6 +336,104 @@ function createPersonaToolServer(personaId: PersonaId, result: PersonaResult) {
             type: "text" as const,
             text: "Day summary recorded.",
           }],
+        };
+      }
+    ),
+
+    tool(
+      "get_jira_ticket",
+      "Look up an existing Jira ticket by its key. Returns details including summary, description, status, assignee, and recent comments.",
+      {
+        issueKey: z.string().describe("The ticket key (e.g., 'DR-42' or 'SUP-15')."),
+      },
+      async (args) => {
+        if (!writer || !state) {
+          return { content: [{ type: "text" as const, text: "Artifact retrieval not available." }] };
+        }
+        const issue = await writer.readJiraIssue(args.issueKey, state);
+        if (!issue) {
+          return { content: [{ type: "text" as const, text: `Ticket ${args.issueKey} not found.` }] };
+        }
+        const recentComments = issue.comments.slice(-5).map(
+          (c: { author: string; created: string; body: object }) => `  ${c.author} (${c.created}): ${extractTextFromAdf(c.body)}`
+        ).join("\n");
+        const descText = extractTextFromAdf(issue.description);
+        const text = [
+          `[${issue.key}] ${issue.summary}`,
+          `Type: ${issue.type} | Status: ${issue.status} | Priority: ${issue.priority}`,
+          `Reporter: ${issue.reporter} | Assignee: ${issue.assignee || "Unassigned"}`,
+          `Sprint: ${issue.sprint || "Backlog"}`,
+          `Labels: ${issue.labels.join(", ") || "none"}`,
+          "",
+          descText.length > 2000 ? descText.substring(0, 2000) + "..." : descText,
+          "",
+          issue.comments.length > 0 ? `Recent comments (${issue.comments.length} total):\n${recentComments}` : "No comments yet.",
+        ].join("\n");
+        return { content: [{ type: "text" as const, text }] };
+      }
+    ),
+
+    tool(
+      "get_confluence_page",
+      "Look up an existing Confluence page by its title and space. Returns the page content and comments.",
+      {
+        title: z.string().describe("The page title to look up."),
+        spaceKey: z.enum(["PROD", "ENG", "OPS", "MKT"]).describe("The Confluence space key."),
+      },
+      async (args) => {
+        if (!writer) {
+          return { content: [{ type: "text" as const, text: "Artifact retrieval not available." }] };
+        }
+        const page = await writer.readConfluencePage(args.spaceKey, args.title);
+        if (!page) {
+          return { content: [{ type: "text" as const, text: `Page "${args.title}" not found in ${args.spaceKey} space.` }] };
+        }
+        const bodyText = extractTextFromAdf(page.body);
+        const body = bodyText.length > 2000 ? bodyText.substring(0, 2000) + "..." : bodyText;
+        const recentComments = page.comments.slice(-3).map(
+          (c: { author: string; body: object }) => `  ${c.author}: ${extractTextFromAdf(c.body)}`
+        ).join("\n");
+        const text = [
+          `[${page.spaceKey}] ${page.title}`,
+          `Author: ${page.author} | Created: ${page.created}`,
+          `Labels: ${page.labels.join(", ") || "none"}`,
+          "",
+          body,
+          "",
+          page.comments.length > 0 ? `Comments:\n${recentComments}` : "No comments.",
+        ].join("\n");
+        return { content: [{ type: "text" as const, text }] };
+      }
+    ),
+
+    tool(
+      "react_to_artifact",
+      "React to a Jira comment or Confluence page with an emoji, or indicate you want to leave a full comment instead. Use this after reading an artifact with get_jira_ticket or get_confluence_page.",
+      {
+        action: z.enum(["comment", "emoji"]).describe("'emoji' to add an emoji reaction, 'comment' if you want to write a full comment instead (then use add_comment)."),
+        emoji: z.string().optional().describe("The emoji to react with (e.g., '👍', '🔥', '👀', '❤️', '🚀', '😬'). Required when action is 'emoji'."),
+        targetType: z.enum(["jira_comment", "confluence_page"]).describe("What you're reacting to."),
+        targetKey: z.string().describe("Issue key (for jira_comment) or page title (for confluence_page)."),
+        commentId: z.string().optional().describe("For jira_comment: the ID of the comment to react to."),
+        spaceKey: z.enum(["PROD", "ENG", "OPS", "MKT"]).optional().describe("For confluence_page: the space key."),
+      },
+      async (args) => {
+        if (args.action === "emoji") {
+          const emoji = args.emoji || "👍";
+          result.emojiReactions.push({
+            targetType: args.targetType,
+            targetKey: args.targetKey,
+            emoji,
+            commentId: args.commentId,
+            spaceKey: args.spaceKey,
+          });
+          return {
+            content: [{ type: "text" as const, text: `Reacted with ${emoji} to ${args.targetKey}.` }],
+          };
+        }
+        // action === "comment"
+        return {
+          content: [{ type: "text" as const, text: "OK, use add_comment to write your comment." }],
         };
       }
     ),
@@ -253,30 +465,47 @@ export async function executePersonaActivity(
   context: string,
   config: Config,
   tokenTracker: TokenTracker,
-  category: "persona_generation" | "reaction" = "persona_generation"
+  category: "persona_generation" | "reaction" = "persona_generation",
+  writer?: IWriter,
+  state?: SimulationState
 ): Promise<PersonaResult> {
   const result: PersonaResult = {
     createdIssues: [],
     addedComments: [],
+    confluenceComments: [],
     transitions: [],
     createdPages: [],
+    emojiReactions: [],
+    sprintOperations: [],
     daySummary: "",
     inputTokens: 0,
     outputTokens: 0,
   };
 
-  const mcpServer = createPersonaToolServer(persona.id, result);
+  const mcpServer = createPersonaToolServer(persona.id, result, writer, state);
   const userMessage = `${context}\n\n## Your Task\n${activity.description}\n\nUse the tools to complete this task, then call summarize_day when done.`;
 
   const q = query({
     prompt: createPromptStream(userMessage),
     options: {
-      model: config.personaModel,
+      model: config.plannerModel,
       systemPrompt: buildPersonaSystemPrompt(persona),
       mcpServers: { "deadroute-persona-tools": mcpServer },
-      tools: [],
-      permissionMode: "bypassPermissions",
-      allowDangerouslySkipPermissions: true,
+      allowedTools: [
+        "mcp__deadroute-persona-tools__create_jira_ticket",
+        "mcp__deadroute-persona-tools__add_comment",
+        "mcp__deadroute-persona-tools__transition_ticket",
+        "mcp__deadroute-persona-tools__create_confluence_page",
+        "mcp__deadroute-persona-tools__add_confluence_comment",
+        "mcp__deadroute-persona-tools__summarize_day",
+        "mcp__deadroute-persona-tools__get_jira_ticket",
+        "mcp__deadroute-persona-tools__get_confluence_page",
+        "mcp__deadroute-persona-tools__react_to_artifact",
+        "mcp__deadroute-persona-tools__start_sprint",
+        "mcp__deadroute-persona-tools__close_sprint",
+        "mcp__deadroute-persona-tools__move_to_sprint",
+        "mcp__deadroute-persona-tools__move_to_backlog",
+      ],
       maxTurns: MAX_TOOL_ROUNDS,
       persistSession: false,
     },

@@ -24,10 +24,13 @@ export interface Config {
   // Concurrency
   maxConcurrentAgents: number;
 
+  // Output mode
+  outputMode: "file" | "atlassian";
+
   // Feature flags
   enableReactions: boolean;
   enableRag: boolean;
-  maxReactionRounds: number;
+  maxReactionsPerActivity: number;
 
   // Token pricing (per 1M tokens)
   pricing: {
@@ -44,8 +47,8 @@ export function loadConfig(overrides: Partial<Config> = {}): Config {
     anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
     openaiApiKey: process.env.OPENAI_API_KEY || "",
 
-    plannerModel: process.env.PLANNER_MODEL || "claude-sonnet-4-5-20250929",
-    personaModel: process.env.PERSONA_MODEL || "claude-haiku-4-5-20251001",
+    plannerModel: process.env.PLANNER_MODEL || "claude-sonnet-4-6",
+    personaModel: process.env.PERSONA_MODEL || "claude-haiku-4-5",
 
     startDate: process.env.START_DATE || "2024-01-15",
     simulationDays: parseInt(process.env.SIMULATION_DAYS || "250", 10),
@@ -53,9 +56,11 @@ export function loadConfig(overrides: Partial<Config> = {}): Config {
 
     maxConcurrentAgents: parseInt(process.env.MAX_CONCURRENT_AGENTS || "5", 10),
 
+    outputMode: (process.env.OUTPUT_MODE === "atlassian" ? "atlassian" : "file") as "file" | "atlassian",
+
     enableReactions: process.env.ENABLE_REACTIONS !== "false",
     enableRag: process.env.ENABLE_RAG !== "false",
-    maxReactionRounds: parseInt(process.env.MAX_REACTION_ROUNDS || "3", 10),
+    maxReactionsPerActivity: parseInt(process.env.MAX_REACTIONS_PER_ACTIVITY || "3", 10),
 
     // Pricing as of early 2025 (per 1M tokens)
     pricing: {
@@ -72,9 +77,9 @@ export function loadConfig(overrides: Partial<Config> = {}): Config {
 
 export function validateConfig(config: Config): string[] {
   const errors: string[] = [];
-  if (!config.anthropicApiKey) {
-    errors.push("ANTHROPIC_API_KEY is required");
-  }
+  // if (!config.anthropicApiKey) {
+  //   errors.push("ANTHROPIC_API_KEY is required");
+  // }
   if (!config.openaiApiKey) {
     errors.push("OPENAI_API_KEY is required (for Vectra embeddings)");
   }

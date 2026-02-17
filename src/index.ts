@@ -13,6 +13,9 @@ import { StateManager } from "./simulation/state.js";
 import { TokenTracker } from "./simulation/token-tracker.js";
 import { readFile } from "fs/promises";
 import { join } from "path";
+import { extractTextFromAdf } from "./utils/adf.js";
+import { adfZodSchema } from "./types/adf.js";
+import { registerBootstrapCommand } from "./bootstrap/index.js";
 
 const program = new Command();
 
@@ -27,10 +30,12 @@ program
   .option("--from-day <number>", "Resume from a specific day number", parseInt)
   .option("--dry-run", "Plan days without generating content (master planner only)")
   .option("--days <number>", "Override number of simulation days", parseInt)
+  .option("--output-mode <mode>", "Output mode: file or atlassian", "file")
   .action(async (options) => {
-    const config = loadConfig(
-      options.days ? { simulationDays: options.days } : {}
-    );
+    const overrides: Record<string, unknown> = {};
+    if (options.days) overrides.simulationDays = options.days;
+    if (options.outputMode) overrides.outputMode = options.outputMode;
+    const config = loadConfig(overrides);
 
     const errors = validateConfig(config);
     if (errors.length > 0 && !options.dryRun) {
@@ -121,14 +126,14 @@ program
     console.log(`Created: ${issue.created} | Updated: ${issue.updated}`);
     console.log("");
     console.log(chalk.bold("Description:"));
-    console.log(issue.description || "(empty)");
+    console.log(extractTextFromAdf(issue.description) || "(empty)");
 
     if (issue.comments.length > 0) {
       console.log("");
       console.log(chalk.bold(`Comments (${issue.comments.length}):`));
       for (const c of issue.comments) {
         console.log(chalk.dim(`\n  --- ${c.author} (${c.created}) ---`));
-        console.log(`  ${c.body.replace(/\n/g, "\n  ")}`);
+        console.log(`  ${extractTextFromAdf(c.body).replace(/\n/g, "\n  ")}`);
       }
     }
 
@@ -140,5 +145,7 @@ program
       }
     }
   });
+
+registerBootstrapCommand(program);
 
 program.parse();

@@ -8,11 +8,12 @@
 
 import { writeFile, readFile, mkdir } from "fs/promises";
 import { join, dirname } from "path";
-import type { JiraIssue } from "../types/jira.js";
-import type { ConfluencePage } from "../types/confluence.js";
-import type { SimulationState, TicketState } from "../types/simulation.js";
+import type { JiraIssue, JiraComment } from "../types/jira.js";
+import type { ConfluencePage, ConfluenceComment } from "../types/confluence.js";
+import type { PersonaId, SimulationState } from "../types/simulation.js";
+import type { IWriter, WriteResult } from "./writer-interface.js";
 
-export class OutputWriter {
+export class OutputWriter implements IWriter {
   private outputDir: string;
 
   constructor(outputDir: string) {
@@ -77,7 +78,11 @@ export class OutputWriter {
     return join(spaceDir, sanitizeFilename(page.parentTitle), `${sanitizeFilename(page.title)}.json`);
   }
 
-  async writeJiraIssue(issue: JiraIssue, state: SimulationState): Promise<string> {
+  async writeJiraIssue(
+    issue: JiraIssue,
+    state: SimulationState,
+    _actingPersona?: PersonaId,
+  ): Promise<WriteResult> {
     const filePath = this.getJiraIssuePath(issue, state);
     await mkdir(dirname(filePath), { recursive: true });
 
@@ -87,7 +92,7 @@ export class OutputWriter {
     }
 
     await writeFile(filePath, JSON.stringify(issue, null, 2));
-    return filePath;
+    return { key: issue.key };
   }
 
   async readJiraIssue(key: string, state: SimulationState): Promise<JiraIssue | null> {
@@ -105,7 +110,7 @@ export class OutputWriter {
       priority: "Medium",
       status: ticketState.status as JiraIssue["status"],
       summary: ticketState.summary,
-      description: "",
+      description: { version: 1, type: "doc", content: [] },
       reporter: "",
       assignee: null,
       labels: [],
@@ -131,7 +136,10 @@ export class OutputWriter {
     }
   }
 
-  async writeConfluencePage(page: ConfluencePage): Promise<string> {
+  async writeConfluencePage(
+    page: ConfluencePage,
+    _actingPersona?: PersonaId,
+  ): Promise<WriteResult> {
     const filePath = this.getConfluencePagePath(page);
     await mkdir(dirname(filePath), { recursive: true });
 
@@ -140,21 +148,23 @@ export class OutputWriter {
     await mkdir(pageDir, { recursive: true });
 
     await writeFile(filePath, JSON.stringify(page, null, 2));
-    return filePath;
+    return { id: page.id };
   }
 
   async appendComment(
     key: string,
-    comment: { id: string; author: string; body: string; created: string },
-    state: SimulationState
-  ): Promise<void> {
+    comment: JiraComment,
+    state: SimulationState,
+    _actingPersona?: PersonaId,
+  ): Promise<WriteResult> {
     const issue = await this.readJiraIssue(key, state);
     if (!issue) {
       throw new Error(`Cannot append comment: issue ${key} not found on disk`);
     }
-    issue.comments.push(comment);
+    issue.comments.push({ ...comment, reactions: comment.reactions || [] });
     issue.updated = comment.created;
     await this.writeJiraIssue(issue, state);
+    return { id: comment.id };
   }
 
   async updateJiraIssueStatus(
@@ -162,7 +172,8 @@ export class OutputWriter {
     newStatus: string,
     by: string,
     date: string,
-    state: SimulationState
+    state: SimulationState,
+    _actingPersona?: PersonaId,
   ): Promise<void> {
     const issue = await this.readJiraIssue(key, state);
     if (!issue) {
@@ -181,6 +192,140 @@ export class OutputWriter {
       date,
     });
     await this.writeJiraIssue(issue, state);
+  }
+
+  async readConfluencePage(spaceKey: string, title: string): Promise<ConfluencePage | null> {
+    const stub: ConfluencePage = {
+      id: "",
+      spaceKey: spaceKey as ConfluencePage["spaceKey"],
+      title,
+      author: "",
+      body: { version: 1, type: "doc", content: [] },
+      parentTitle: null,
+      labels: [],
+      created: "",
+      updated: "",
+      comments: [],
+      reactions: [],
+      linkedJiraKeys: [],
+    };
+    const filePath = this.getConfluencePagePath(stub);
+    try {
+      const data = await readFile(filePath, "utf-8");
+      return JSON.parse(data) as ConfluencePage;
+    } catch {
+      return null;
+    }
+  }
+
+  async appendConfluenceComment(
+    spaceKey: string,
+    title: string,
+    comment: ConfluenceComment,
+    _actingPersona?: PersonaId,
+  ): Promise<WriteResult> {
+    const page = await this.readConfluencePage(spaceKey, title);
+    if (!page) {
+      throw new Error(`Cannot append comment: page "${title}" in ${spaceKey} not found on disk`);
+    }
+    page.comments.push(comment);
+    page.updated = comment.created;
+    await this.writeConfluencePage(page);
+    return { id: comment.id };
+  }
+
+  async addReactionToComment(
+    issueKey: string,
+    commentId: string,
+    emoji: string,
+    author: string,
+    state: SimulationState,
+    _actingPersona?: PersonaId,
+  ): Promise<void> {
+    const issue = await this.readJiraIssue(issueKey, state);
+    if (!issue) {
+      throw new Error(`Cannot add reaction: issue ${issueKey} not found on disk`);
+    }
+    const comment = issue.comments.find((c) => c.id === commentId);
+    if (!comment) {
+      throw new Error(`Cannot add reaction: comment ${commentId} not found on ${issueKey}`);
+    }
+    if (!comment.reactions) comment.reactions = [];
+    comment.reactions.push({ emoji, author });
+    issue.updated = new Date().toISOString();
+    await this.writeJiraIssue(issue, state);
+  }
+
+  async startSprint(
+    sprintName: string,
+    state: SimulationState,
+    _actingPersona?: PersonaId,
+  ): Promise<void> {
+    if (state.currentSprint && state.currentSprint.name === sprintName) {
+      state.currentSprint.state = "active";
+    }
+  }
+
+  async closeSprint(
+    sprintName: string,
+    state: SimulationState,
+    _actingPersona?: PersonaId,
+  ): Promise<void> {
+    if (state.currentSprint && state.currentSprint.name === sprintName) {
+      state.currentSprint.state = "closed";
+    }
+  }
+
+  async moveToSprint(
+    issueKeys: string[],
+    sprintName: string,
+    state: SimulationState,
+    _actingPersona?: PersonaId,
+  ): Promise<void> {
+    for (const key of issueKeys) {
+      const ticket = state.tickets[key];
+      if (!ticket) continue;
+      ticket.sprint = sprintName;
+      // Update the JSON file on disk
+      const issue = await this.readJiraIssue(key, state);
+      if (issue) {
+        issue.sprint = sprintName;
+        await this.writeJiraIssue(issue, state);
+      }
+    }
+  }
+
+  async moveToBacklog(
+    issueKeys: string[],
+    state: SimulationState,
+    _actingPersona?: PersonaId,
+  ): Promise<void> {
+    for (const key of issueKeys) {
+      const ticket = state.tickets[key];
+      if (!ticket) continue;
+      ticket.sprint = null;
+      const issue = await this.readJiraIssue(key, state);
+      if (issue) {
+        issue.sprint = null;
+        await this.writeJiraIssue(issue, state);
+      }
+    }
+  }
+
+  async addReactionToPage(
+    spaceKey: string,
+    title: string,
+    emoji: string,
+    author: string,
+    _actingPersona?: PersonaId,
+  ): Promise<void> {
+    const page = await this.readConfluencePage(spaceKey, title);
+    if (!page) {
+      throw new Error(`Cannot add reaction: page "${title}" in ${spaceKey} not found on disk`);
+    }
+    if (!page.reactions) page.reactions = [];
+    page.reactions.push({ emoji, author });
+    await this.writeConfluencePage(page);
   }
 }
 

@@ -61,7 +61,8 @@ export class ContextBuilder {
 
   async buildContext(
     personaId: PersonaId,
-    activity: Activity
+    activity: Activity,
+    officeContext?: string
   ): Promise<PersonaContext> {
     const persona = getPersona(personaId);
     const state = this.stateManager.getState();
@@ -94,6 +95,8 @@ export class ContextBuilder {
     const assembled = [
       `## Context for ${persona.displayName} (${persona.role})`,
       `Current date: ${state.currentDate}`,
+      "",
+      officeContext ? `### State of the Office\n${officeContext}` : "",
       "",
       recentActivity,
       "",
@@ -189,33 +192,59 @@ export class ContextBuilder {
   }
 
   /**
-   * Build context for a reaction — focused on the artifact and conversation.
+   * Build context for an inline reaction — tells the agent what to react to
+   * and instructs them to use retrieval tools to read the full artifact.
    */
   async buildReactionContext(
     reactorId: PersonaId,
-    artifactKey: string,
-    artifactSummary: string,
-    recentComments: string[]
+    targetType: "jira" | "confluence",
+    targetKey: string,
+    targetSummary: string,
+    reason: string,
+    spaceKey?: string,
+    officeContext?: string
   ): Promise<string> {
     const reactor = getPersona(reactorId);
     const recentActivities = this.stateManager.getRecentActivities(reactorId);
 
     const lines = [
       `## Reaction Context for ${reactor.displayName}`,
-      "",
-      `### Artifact: ${artifactKey}`,
-      artifactSummary,
+      `Current date: ${this.stateManager.getState().currentDate}`,
       "",
     ];
 
-    if (recentComments.length > 0) {
-      lines.push("### Conversation so far:");
-      lines.push(...recentComments);
-      lines.push("");
+    if (officeContext) {
+      lines.push(`### State of the Office`, officeContext, "");
     }
 
+    lines.push(
+      `### Artifact to React To`,
+      `Type: ${targetType === "jira" ? "Jira Ticket" : "Confluence Page"}`,
+      `Key/ID: ${targetKey}`,
+      `Summary: ${targetSummary}`,
+      `Why you're reacting: ${reason}`,
+      "",
+    );
+
+    if (targetType === "jira") {
+      lines.push(`Use get_jira_ticket to read the full ticket details before deciding how to react.`);
+    } else {
+      lines.push(`Use get_confluence_page with spaceKey="${spaceKey}" and the page title to read the full page before deciding how to react.`);
+    }
+    lines.push(
+      "",
+      "After reading the artifact, decide whether to:",
+      "1. Add a full comment (use react_to_artifact with action='comment', then add_comment for Jira tickets or add_confluence_comment for Confluence pages)",
+      "2. Just add an emoji reaction (use react_to_artifact with action='emoji')",
+      "",
+    );
+
     lines.push("### Your Recent Activity");
-    lines.push(...recentActivities.slice(-5));
+    if (recentActivities.length > 0) {
+      lines.push(...recentActivities.slice(-5));
+    } else {
+      lines.push("No recent activity.");
+    }
 
     return lines.join("\n");
   }

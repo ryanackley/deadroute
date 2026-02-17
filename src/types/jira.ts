@@ -25,8 +25,9 @@ export type JsmStatus =
 export interface JiraComment {
   id: string;
   author: string;
-  body: string;
+  body: object; // ADF document
   created: string; // ISO 8601
+  reactions: { emoji: string; author: string }[];
 }
 
 export interface StatusTransition {
@@ -43,7 +44,7 @@ export interface JiraIssue {
   priority: IssuePriority;
   status: IssueStatus | JsmStatus;
   summary: string;
-  description: string;
+  description: object; // ADF document
   reporter: string;
   assignee: string | null;
   labels: string[];
