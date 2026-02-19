@@ -289,6 +289,20 @@ export class AtlassianWriter implements IWriter {
     }
   }
 
+  async updateIssueDescription(
+    key: string,
+    description: object,
+    summary: string | undefined,
+    _date: string,
+    state: SimulationState,
+    actingPersona?: PersonaId,
+  ): Promise<void> {
+    const client = this.getClient(actingPersona);
+    const fields: Record<string, unknown> = { description };
+    if (summary) fields.summary = summary;
+    await client.updateIssue(key, fields);
+  }
+
   async appendComment(
     issueKey: string,
     comment: JiraComment,
@@ -432,6 +446,44 @@ export class AtlassianWriter implements IWriter {
     } catch {
       return null;
     }
+  }
+
+  async updateConfluencePageBody(
+    spaceKey: string,
+    pageTitle: string,
+    body: object,
+    _date: string,
+    actingPersona?: PersonaId,
+  ): Promise<void> {
+    const client = this.getClient(actingPersona);
+    const spaceId = this.spaceIds.get(spaceKey as SpaceKey);
+    if (!spaceId) {
+      throw new Error(`No space ID found for space key "${spaceKey}"`);
+    }
+
+    // Find the page ID
+    let pageId = this.pageIdMap.get(this.pageMapKey(spaceKey, pageTitle));
+    if (!pageId) {
+      const page = await this.defaultClient.getPageByTitle(spaceId, pageTitle);
+      if (!page) {
+        throw new Error(`Page "${pageTitle}" not found in space ${spaceKey}`);
+      }
+      pageId = page.id;
+      this.pageIdMap.set(this.pageMapKey(spaceKey, pageTitle), pageId);
+    }
+
+    // Get current version number for the required version increment
+    const currentPage = await this.defaultClient.getPage(pageId);
+    const nextVersion = currentPage.version.number + 1;
+
+    await client.updatePage(pageId, {
+      title: pageTitle,
+      body: {
+        representation: "atlas_doc_format" as const,
+        value: JSON.stringify(body),
+      },
+      version: nextVersion,
+    });
   }
 
   async appendConfluenceComment(

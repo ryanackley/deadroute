@@ -587,6 +587,48 @@ async function main() {
     fail("React to page", "Skipped — no page");
   }
 
+  // ── 19. Edit Jira issue description ──────────────────────────
+  console.log("\n19. Edit Jira issue description");
+  if (storyKey) {
+    try {
+      const newDesc = makeAdf("UPDATED: Push notification endpoint — now using Server-Sent Events instead of WebSockets for better mobile battery life.");
+      const newSummary = `${tag} Test Story — SSE notification endpoint (EDITED)`;
+      await writer.updateIssueDescription(storyKey, newDesc, newSummary, now, state, persona);
+      // Verify the edit by reading it back
+      const updated = await writer.readJiraIssue(storyKey, state);
+      if (!updated) throw new Error("readJiraIssue returned null after edit");
+      const checks = [
+        updated.summary.includes("EDITED") ? null : `summary not updated: "${updated.summary}"`,
+      ].filter(Boolean);
+      if (checks.length > 0) {
+        fail("Edit issue description", checks.join("; "));
+      } else {
+        pass("Edit issue description", `${storyKey}: summary="${updated.summary}"`);
+      }
+    } catch (err) {
+      fail("Edit issue description", err);
+    }
+  } else {
+    fail("Edit issue description", "Skipped — no story key");
+  }
+
+  // ── 20. Edit Confluence page body ─────────────────────────────
+  console.log("\n20. Edit Confluence page body");
+  if (pageTitle) {
+    try {
+      const newBody = makeAdf("UPDATED: This ADR has been revised. We are switching from REST to GraphQL for the zombie alert API.");
+      await writer.updateConfluencePageBody("ENG", pageTitle, newBody, now, persona);
+      // Verify the edit by reading it back
+      const updated = await writer.readConfluencePage("ENG", pageTitle);
+      if (!updated) throw new Error("readConfluencePage returned null after edit");
+      pass("Edit page body", `"${pageTitle}" updated successfully (id=${updated.id})`);
+    } catch (err) {
+      fail("Edit page body", err);
+    }
+  } else {
+    fail("Edit page body", "Skipped — no page");
+  }
+
   // ── Summary ─────────────────────────────────────────────────
   console.log("\n" + "━".repeat(60));
   console.log(`\nResults: ${passed.length} passed, ${failed.length} failed out of ${passed.length + failed.length} tests\n`);

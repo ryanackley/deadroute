@@ -219,6 +219,14 @@ export class StateManager {
     return lines.join("\n");
   }
 
+  getRollingSummaries(): { date: string; summary: string }[] {
+    return this.state.rollingSummaries ?? [];
+  }
+
+  setRollingSummaries(summaries: { date: string; summary: string }[]): void {
+    this.state.rollingSummaries = summaries;
+  }
+
   private updateStatusCount(status: string, delta: number): void {
     const counts = this.state.metrics.ticketsByStatus;
     counts[status] = (counts[status] || 0) + delta;

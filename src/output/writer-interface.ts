@@ -42,6 +42,15 @@ export interface IWriter {
     actingPersona?: PersonaId,
   ): Promise<void>;
 
+  updateIssueDescription(
+    key: string,
+    description: object,
+    summary: string | undefined,
+    date: string,
+    state: SimulationState,
+    actingPersona?: PersonaId,
+  ): Promise<void>;
+
   writeConfluencePage(
     page: ConfluencePage,
     actingPersona?: PersonaId,
@@ -51,6 +60,14 @@ export interface IWriter {
     spaceKey: string,
     title: string,
   ): Promise<ConfluencePage | null>;
+
+  updateConfluencePageBody(
+    spaceKey: string,
+    pageTitle: string,
+    body: object,
+    date: string,
+    actingPersona?: PersonaId,
+  ): Promise<void>;
 
   appendConfluenceComment(
     spaceKey: string,

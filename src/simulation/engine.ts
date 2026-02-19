@@ -102,7 +102,7 @@ export async function runSimulation(config: Config, options: EngineOptions = {})
   let currentDate = parseISO(config.startDate);
 
   // Rolling summary: keeps the last N days of summaries for narrative continuity
-  const recentDaySummaries: { date: string; summary: string }[] = [];
+  const recentDaySummaries = stateManager.getRollingSummaries();
 
   // Advance to start day if resuming
   const startFromDay = options.fromDay || 1;
@@ -267,6 +267,7 @@ export async function runSimulation(config: Config, options: EngineOptions = {})
       recentDaySummaries.shift();
     }
 
+    stateManager.setRollingSummaries(recentDaySummaries);
     const tokenDaySummary = tokenTracker.endDay();
     // Sync API writer state (page/issue ID maps) before persisting
     if (writer instanceof AtlassianWriter) {
@@ -400,6 +401,32 @@ async function executeActivity(
     }
   }
 
+  // Process edited issues (description/summary updates)
+  for (const { issueKey, newDescription, newSummary } of result.editedIssues) {
+    if (!state.tickets[issueKey]) continue;
+    try {
+      await writer.updateIssueDescription(issueKey, newDescription, newSummary, timestamp, state, activity.persona);
+      if (newSummary) {
+        state.tickets[issueKey].summary = newSummary;
+      }
+      stateManager.logActivity(activity.persona, `Updated description on ${issueKey}`);
+      actResult.modifiedKeys.push(issueKey);
+      await ledger.record({ event: "issue_updated", key: issueKey, ts: timestamp, actor: activity.persona });
+    } catch (err) {
+      console.error(chalk.dim(`    Could not update ${issueKey} description: ${err}`));
+    }
+  }
+
+  // Process edited Confluence pages (body updates)
+  for (const { spaceKey, pageTitle, newBody } of result.editedPages) {
+    try {
+      await writer.updateConfluencePageBody(spaceKey, pageTitle, newBody, timestamp, activity.persona);
+      stateManager.logActivity(activity.persona, `Updated page: ${pageTitle}`);
+    } catch (err) {
+      console.error(chalk.dim(`    Could not update page "${pageTitle}": ${err}`));
+    }
+  }
+
   // Process pages
   for (const page of result.createdPages) {
     if (config.outputMode !== "atlassian") {
@@ -484,6 +511,12 @@ async function executeActivity(
   }
   if (result.transitions.length > 0) {
     parts.push(`${result.transitions.length} transition(s)`);
+  }
+  if (result.editedIssues.length > 0) {
+    parts.push(`${result.editedIssues.length} issue edit(s)`);
+  }
+  if (result.editedPages.length > 0) {
+    parts.push(`${result.editedPages.length} page edit(s)`);
   }
   if (actResult.newPages.length > 0) {
     parts.push(`+${actResult.newPages.length} page(s)`);
@@ -574,6 +607,31 @@ async function executeInlineReaction(
     modifiedKeys.push(issueKey);
   }
 
+  // Process edited issues from reactions
+  for (const { issueKey, newDescription, newSummary } of result.editedIssues) {
+    if (!state.tickets[issueKey]) continue;
+    try {
+      await writer.updateIssueDescription(issueKey, newDescription, newSummary, timestamp, state, reaction.reactor);
+      if (newSummary) {
+        state.tickets[issueKey].summary = newSummary;
+      }
+      stateManager.logActivity(reaction.reactor, `Updated description on ${issueKey}`);
+      modifiedKeys.push(issueKey);
+    } catch {
+      // Silently skip failed edits
+    }
+  }
+
+  // Process edited Confluence pages from reactions
+  for (const { spaceKey, pageTitle, newBody } of result.editedPages) {
+    try {
+      await writer.updateConfluencePageBody(spaceKey, pageTitle, newBody, timestamp, reaction.reactor);
+      stateManager.logActivity(reaction.reactor, `Updated page: ${pageTitle}`);
+    } catch {
+      // Page may not exist; silently skip
+    }
+  }
+
   // Process emoji reactions
   for (const emoji of result.emojiReactions) {
     try {
@@ -609,6 +667,8 @@ async function executeInlineReaction(
   if (result.addedComments.length > 0) summaryParts.push(`${result.addedComments.length} comment(s)`);
   if (result.confluenceComments.length > 0) summaryParts.push(`${result.confluenceComments.length} page comment(s)`);
   if (result.transitions.length > 0) summaryParts.push(`${result.transitions.length} transition(s)`);
+  if (result.editedIssues.length > 0) summaryParts.push(`${result.editedIssues.length} issue edit(s)`);
+  if (result.editedPages.length > 0) summaryParts.push(`${result.editedPages.length} page edit(s)`);
   if (result.emojiReactions.length > 0) summaryParts.push(`${result.emojiReactions.map((r) => r.emoji).join("")}`);
 
   const summary = summaryParts.length > 0

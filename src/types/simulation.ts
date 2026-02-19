@@ -86,6 +86,8 @@ export interface SimulationState {
   jiraIssueIds?: Record<string, string>;
   /** Sprint name → Jira sprint ID (API mode only) */
   sprintIds?: Record<string, string>;
+  /** Rolling day summaries for narrative continuity (last N days) */
+  rollingSummaries?: { date: string; summary: string }[];
 }
 
 export interface NarrativeBeat {

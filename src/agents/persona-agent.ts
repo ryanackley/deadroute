@@ -35,6 +35,8 @@ export interface PersonaResult {
   confluenceComments: { spaceKey: string; pageTitle: string; comment: ConfluenceComment }[];
   transitions: { issueKey: string; newStatus: IssueStatus; by: string }[];
   createdPages: ConfluencePage[];
+  editedIssues: { issueKey: string; newDescription: object; newSummary?: string }[];
+  editedPages: { spaceKey: string; pageTitle: string; newBody: object }[];
   emojiReactions: EmojiReaction[];
   sprintOperations: SprintOperation[];
   daySummary: string;
@@ -73,15 +75,21 @@ You are roleplaying as this person. Use the provided tools to take actions:
 - Use transition_ticket to move tickets between statuses
 - Use create_confluence_page to create documentation
 - Use add_confluence_comment to comment on existing Confluence pages
+- Use edit_jira_description to update a ticket's description (and optionally summary) — use this instead of commenting when you need to amend ticket content
+- Use edit_confluence_page to update a page's body content — use this instead of commenting when you need to amend page content
 - Use get_jira_ticket to look up details of an existing ticket
 - Use get_confluence_page to look up an existing Confluence page
 - Use react_to_artifact to add an emoji reaction to a comment or page, or indicate you'll leave a full comment
 - Use start_sprint to activate/start a sprint
 - Use close_sprint to complete/close a sprint
-- Use move_to_sprint to pull issues from the backlog into a sprint
+- Use move_to_sprint to pull issues from the backlog into a sprint. Don't forget to do this after starting a sprint.
 - Use move_to_backlog to drop issues from a sprint back to the backlog
 
 Write ALL content in character — your voice, your style, your quirks.
+
+In the real world comments are rarely over 100 words (add_comment, add_confluence_comment). If you find yourself creating a very verbose comment. Do one of the following.
+* If it's on a confluence page, consider editing the page or creating new one and linking to it from your comment.
+* If it's a Jira comment, write a Confluence page in the appropriate space, then link to it from inside the Jira comment.
 
 When you are done with all your tasks, call summarize_day with a 250-400 word recap of your day written in character. This summary will be used to provide context in future days.
 
@@ -407,6 +415,52 @@ function createPersonaToolServer(
     ),
 
     tool(
+      "edit_jira_description",
+      "Edit/update the description (and optionally summary) of an existing Jira issue. Use this instead of adding a comment when you need to amend or rewrite the ticket's description. Read the ticket first with get_jira_ticket.",
+      {
+        issueKey: z.string().describe("The ticket key (e.g., 'DR-42' or 'SUP-15')."),
+        description: adfToolSchema.describe("The new/updated description in ADF format, written in your voice and style."),
+        summary: z.string().optional().describe("Optionally update the ticket summary/title too."),
+      },
+      async (args) => {
+        result.editedIssues.push({
+          issueKey: args.issueKey,
+          newDescription: args.description as object,
+          newSummary: args.summary,
+        });
+        return {
+          content: [{
+            type: "text" as const,
+            text: `Description updated on ${args.issueKey}.`,
+          }],
+        };
+      }
+    ),
+
+    tool(
+      "edit_confluence_page",
+      "Edit/update the body content of an existing Confluence page. Use this instead of adding a comment when you need to amend or rewrite the page content. Read the page first with get_confluence_page.",
+      {
+        spaceKey: z.enum(["PROD", "ENG", "OPS", "MKT"]).describe("The Confluence space key."),
+        pageTitle: z.string().describe("The exact title of the page to edit."),
+        body: adfToolSchema.describe("The new/updated page body in ADF format. This replaces the entire page body."),
+      },
+      async (args) => {
+        result.editedPages.push({
+          spaceKey: args.spaceKey,
+          pageTitle: args.pageTitle,
+          newBody: args.body as object,
+        });
+        return {
+          content: [{
+            type: "text" as const,
+            text: `Page "${args.pageTitle}" in ${args.spaceKey} updated.`,
+          }],
+        };
+      }
+    ),
+
+    tool(
       "react_to_artifact",
       "React to a Jira comment or Confluence page with an emoji, or indicate you want to leave a full comment instead. Use this after reading an artifact with get_jira_ticket or get_confluence_page.",
       {
@@ -475,6 +529,8 @@ export async function executePersonaActivity(
     confluenceComments: [],
     transitions: [],
     createdPages: [],
+    editedIssues: [],
+    editedPages: [],
     emojiReactions: [],
     sprintOperations: [],
     daySummary: "",
@@ -498,6 +554,8 @@ export async function executePersonaActivity(
         "mcp__deadroute-persona-tools__create_confluence_page",
         "mcp__deadroute-persona-tools__add_confluence_comment",
         "mcp__deadroute-persona-tools__summarize_day",
+        "mcp__deadroute-persona-tools__edit_jira_description",
+        "mcp__deadroute-persona-tools__edit_confluence_page",
         "mcp__deadroute-persona-tools__get_jira_ticket",
         "mcp__deadroute-persona-tools__get_confluence_page",
         "mcp__deadroute-persona-tools__react_to_artifact",

@@ -151,6 +151,24 @@ export class OutputWriter implements IWriter {
     return { id: page.id };
   }
 
+  async updateIssueDescription(
+    key: string,
+    description: object,
+    summary: string | undefined,
+    date: string,
+    state: SimulationState,
+    _actingPersona?: PersonaId,
+  ): Promise<void> {
+    const issue = await this.readJiraIssue(key, state);
+    if (!issue) {
+      throw new Error(`Cannot update description: issue ${key} not found on disk`);
+    }
+    issue.description = description;
+    if (summary) issue.summary = summary;
+    issue.updated = date;
+    await this.writeJiraIssue(issue, state);
+  }
+
   async appendComment(
     key: string,
     comment: JiraComment,
@@ -216,6 +234,22 @@ export class OutputWriter implements IWriter {
     } catch {
       return null;
     }
+  }
+
+  async updateConfluencePageBody(
+    spaceKey: string,
+    title: string,
+    body: object,
+    date: string,
+    _actingPersona?: PersonaId,
+  ): Promise<void> {
+    const page = await this.readConfluencePage(spaceKey, title);
+    if (!page) {
+      throw new Error(`Cannot update page: "${title}" in ${spaceKey} not found on disk`);
+    }
+    page.body = body;
+    page.updated = date;
+    await this.writeConfluencePage(page);
   }
 
   async appendConfluenceComment(

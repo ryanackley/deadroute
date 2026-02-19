@@ -218,6 +218,17 @@ export class AtlassianClient {
     );
   }
 
+  async updateIssue(
+    keyOrId: string,
+    fields: Record<string, unknown>,
+  ): Promise<void> {
+    await this.request<void>(
+      "PUT",
+      `/rest/api/3/issue/${encodeURIComponent(keyOrId)}`,
+      { fields },
+    );
+  }
+
   async addComment(
     issueKey: string,
     body: object,
@@ -302,6 +313,28 @@ export class AtlassianClient {
     return this.request<ConfluencePageResponse>(
       "GET",
       `/wiki/api/v2/pages/${encodeURIComponent(pageId)}?body-format=atlas_doc_format`,
+    );
+  }
+
+  async updatePage(
+    pageId: string,
+    params: {
+      title: string;
+      body: { representation: "atlas_doc_format"; value: string };
+      version: number;
+      status?: "current" | "draft";
+    },
+  ): Promise<ConfluencePageResponse> {
+    return this.request<ConfluencePageResponse>(
+      "PUT",
+      `/wiki/api/v2/pages/${encodeURIComponent(pageId)}`,
+      {
+        id: pageId,
+        title: params.title,
+        status: params.status || "current",
+        body: params.body,
+        version: { number: params.version, message: "Updated via DeadRoute simulation" },
+      },
     );
   }
 
