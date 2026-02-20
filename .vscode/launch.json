@@ -41,6 +41,19 @@
       "skipFiles": ["<node_internals>/**"]
     },
     {
+      "name": "Test Atlassian Writer",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/tsx",
+      "args": ["scripts/test-atlassian-writer.ts"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
       "name": "Generate (from day N)",
       "type": "node",
       "request": "launch",

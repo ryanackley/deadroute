@@ -96,6 +96,23 @@ function makeRichAdf(): AdfDocument {
   };
 }
 
+function makeMentionAdf(text: string, mentionId: string, mentionText: string): AdfDocument {
+  return {
+    version: 1,
+    type: "doc",
+    content: [
+      {
+        type: "paragraph",
+        content: [
+          { type: "text", text: `${text} ` },
+          { type: "mention", attrs: { id: mentionId, text: mentionText, accessLevel: "" } },
+          { type: "text", text: " can you take a look?" },
+        ],
+      },
+    ],
+  };
+}
+
 function emptyState(): SimulationState {
   return {
     currentDate: "2024-01-15",
@@ -627,6 +644,33 @@ async function main() {
     }
   } else {
     fail("Edit page body", "Skipped — no page");
+  }
+
+  // ── 21. Add comment with @mention ───────────────────────────
+  console.log("\n21. Add comment with @mention");
+  if (storyKey) {
+    try {
+      const cooperAccountId = config.users.cooper?.accountId;
+      if (!cooperAccountId) throw new Error("No accountId for cooper in config");
+      const mentionBody = makeMentionAdf(
+        "Hey",
+        cooperAccountId,
+        `@${config.users.cooper.displayName}`,
+      );
+      const mentionComment: JiraComment = {
+        id: "",
+        author: "marcus",
+        body: mentionBody,
+        created: now,
+        reactions: [],
+      };
+      const result = await writer.appendComment(storyKey, mentionComment, state, persona);
+      pass("Add comment with mention", `commentId=${result.id} on ${storyKey}, mentioned cooper (${cooperAccountId})`);
+    } catch (err) {
+      fail("Add comment with mention", err);
+    }
+  } else {
+    fail("Add comment with mention", "Skipped — no story key");
   }
 
   // ── Summary ─────────────────────────────────────────────────

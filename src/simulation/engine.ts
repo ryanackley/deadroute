@@ -36,7 +36,7 @@ import {
 } from "../narrative/sprint-calendar.js";
 import { loadNarrativeSpine, getBeatsForWeek, formatBeatsForPrompt } from "../narrative/spine.js";
 import { planDay } from "../agents/master-planner.js";
-import { executePersonaActivity } from "../agents/persona-agent.js";
+import { executePersonaActivity, type MentionMap } from "../agents/persona-agent.js";
 import { getPersona } from "../personas/profiles.js";
 import { identifyInlineReactions, type InlineReaction } from "./reactions.js";
 import { TimestampLedger } from "./timestamp-ledger.js";
@@ -69,6 +69,7 @@ export async function runSimulation(config: Config, options: EngineOptions = {})
   await ledger.init();
 
   let writer: IWriter;
+  const mentionMap: MentionMap = {};
   if (config.outputMode === "atlassian") {
     const atlassianConfig = await loadAtlassianConfig();
     const errors = validateAtlassianConfig(atlassianConfig);
@@ -82,6 +83,10 @@ export async function runSimulation(config: Config, options: EngineOptions = {})
     const atlassianWriter = new AtlassianWriter(atlassianConfig);
     await atlassianWriter.init(stateManager.getState());
     writer = atlassianWriter;
+    // Build mention map from atlassian user config
+    for (const [id, user] of Object.entries(atlassianConfig.users)) {
+      mentionMap[id] = { accountId: user.accountId, displayName: user.displayName };
+    }
   } else {
     writer = new OutputWriter(config.outputDir);
   }
@@ -201,7 +206,8 @@ export async function runSimulation(config: Config, options: EngineOptions = {})
           tokenTracker,
           sprint,
           dayPlan.officeContext,
-          ledger
+          ledger,
+          mentionMap
         );
 
         dayNewIssues.push(...result.newIssues);
@@ -232,7 +238,8 @@ export async function runSimulation(config: Config, options: EngineOptions = {})
                 config,
                 tokenTracker,
                 dayPlan.officeContext,
-                ledger
+                ledger,
+                mentionMap
               );
 
               dayModifiedKeys.push(...reactionResult.modifiedKeys);
@@ -317,7 +324,8 @@ async function executeActivity(
   tokenTracker: TokenTracker,
   sprint: SprintDefinition | null,
   officeContext: string,
-  ledger: TimestampLedger
+  ledger: TimestampLedger,
+  mentionMap?: MentionMap
 ): Promise<ActivityResult> {
   const persona = getPersona(activity.persona);
   const state = stateManager.getState();
@@ -336,7 +344,7 @@ async function executeActivity(
   // Execute persona agent
   const result = await executePersonaActivity(
     persona, activity, context, config, tokenTracker,
-    "persona_generation", writer, state
+    "persona_generation", writer, state, mentionMap
   );
 
   const actResult: ActivityResult = {
@@ -547,7 +555,8 @@ async function executeInlineReaction(
   config: Config,
   tokenTracker: TokenTracker,
   officeContext: string | undefined,
-  ledger: TimestampLedger
+  ledger: TimestampLedger,
+  mentionMap?: MentionMap
 ): Promise<ReactionArtifactResult> {
   const persona = getPersona(reaction.reactor);
   const state = stateManager.getState();
@@ -578,7 +587,7 @@ async function executeInlineReaction(
 
   const result = await executePersonaActivity(
     persona, activity, context, config, tokenTracker,
-    "reaction", writer, state
+    "reaction", writer, state, mentionMap
   );
 
   const modifiedKeys: string[] = [];

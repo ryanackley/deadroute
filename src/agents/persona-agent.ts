@@ -44,9 +44,54 @@ export interface PersonaResult {
   outputTokens: number;
 }
 
+// ─── Types ───────────────────────────────────────────────────────────
+
+export interface MentionEntry {
+  accountId: string;
+  displayName: string;
+}
+
+/** Maps persona ID → Atlassian account info for ADF @mentions. */
+export type MentionMap = Record<string, MentionEntry>;
+
 // ─── System Prompt Builder ───────────────────────────────────────────
 
-function buildPersonaSystemPrompt(persona: PersonaProfile): string {
+function buildPersonaSystemPrompt(persona: PersonaProfile, mentionMap?: MentionMap): string {
+  let mentionSection = "";
+  if (mentionMap && Object.keys(mentionMap).length > 0) {
+    const rows = Object.entries(mentionMap)
+      .map(([id, { accountId, displayName }]) => `| ${id} | ${displayName} | ${accountId} |`)
+      .join("\n");
+    mentionSection = `
+
+## @Mentions
+When you need to mention a teammate in ADF content (descriptions, comments, pages), use a mention node instead of plain text.
+
+ADF mention node format:
+\`\`\`json
+{ "type": "mention", "attrs": { "id": "<accountId>", "text": "@Display Name", "accessLevel": "" } }
+\`\`\`
+
+Place mention nodes inline alongside text nodes within a paragraph's content array.
+
+Team account IDs:
+| Persona | Display Name | Account ID |
+|---------|-------------|------------|
+${rows}
+
+Example — a paragraph mentioning Marcus:
+\`\`\`json
+{
+  "type": "paragraph",
+  "content": [
+    { "type": "text", "text": "Hey " },
+    { "type": "mention", "attrs": { "id": "${mentionMap["marcus"]?.accountId || "<accountId>"}", "text": "@${mentionMap["marcus"]?.displayName || "Marcus Chen"}", "accessLevel": "" } },
+    { "type": "text", "text": " can you review this?" }
+  ]
+}
+\`\`\``;
+  }
+
   return `You are ${persona.displayName}, ${persona.role} at DeadRoute — a scrappy startup that makes "Waze for the zombie apocalypse."
 
 ## Your Background
@@ -80,9 +125,9 @@ You are roleplaying as this person. Use the provided tools to take actions:
 - Use get_jira_ticket to look up details of an existing ticket
 - Use get_confluence_page to look up an existing Confluence page
 - Use react_to_artifact to add an emoji reaction to a comment or page, or indicate you'll leave a full comment
-- Use start_sprint to activate/start a sprint
+- Use start_sprint to activate/start a sprint. Don't forget to pull some issues into the sprint before starting. Use move_to_sprint
 - Use close_sprint to complete/close a sprint
-- Use move_to_sprint to pull issues from the backlog into a sprint. Don't forget to do this after starting a sprint.
+- Use move_to_sprint to pull issues from the backlog into a sprint. Don't forget to do this before starting a sprint.
 - Use move_to_backlog to drop issues from a sprint back to the backlog
 
 Write ALL content in character — your voice, your style, your quirks.
@@ -93,7 +138,7 @@ In the real world comments are rarely over 100 words (add_comment, add_confluenc
 
 When you are done with all your tasks, call summarize_day with a 250-400 word recap of your day written in character. This summary will be used to provide context in future days.
 
-IMPORTANT: Only reference ticket keys that exist in the context provided to you. Do not invent ticket keys.`;
+IMPORTANT: Only reference ticket keys that exist in the context provided to you. Do not invent ticket keys.${mentionSection}`;
 }
 
 // ─── MCP Tool Server Factory ────────────────────────────────────────
@@ -521,7 +566,8 @@ export async function executePersonaActivity(
   tokenTracker: TokenTracker,
   category: "persona_generation" | "reaction" = "persona_generation",
   writer?: IWriter,
-  state?: SimulationState
+  state?: SimulationState,
+  mentionMap?: MentionMap
 ): Promise<PersonaResult> {
   const result: PersonaResult = {
     createdIssues: [],
@@ -545,7 +591,7 @@ export async function executePersonaActivity(
     prompt: createPromptStream(userMessage),
     options: {
       model: config.plannerModel,
-      systemPrompt: buildPersonaSystemPrompt(persona),
+      systemPrompt: buildPersonaSystemPrompt(persona, mentionMap),
       mcpServers: { "deadroute-persona-tools": mcpServer },
       allowedTools: [
         "mcp__deadroute-persona-tools__create_jira_ticket",
