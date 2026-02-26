@@ -78,6 +78,14 @@ export class StateManager {
     this.state.currentDate = date;
   }
 
+  getDayNumber(): number | undefined {
+    return this.state.dayNumber;
+  }
+
+  setDayNumber(dayNumber: number): void {
+    this.state.dayNumber = dayNumber;
+  }
+
   setCurrentSprint(sprint: SprintDefinition | null): void {
     this.state.currentSprint = sprint
       ? {

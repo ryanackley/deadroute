@@ -11,6 +11,7 @@ import type { Config } from "../config.js";
 import type { DayPlan, Activity, NarrativeBeat, PersonaId } from "../types/simulation.js";
 import type { SprintDefinition } from "../narrative/sprint-calendar.js";
 import type { TokenTracker } from "../simulation/token-tracker.js";
+import type { RagIndex } from "../rag/index.js";
 
 const SYSTEM_PROMPT = `You are the master planner for a simulation of a fictional startup called DeadRoute.
 DeadRoute is "Waze for the zombie apocalypse" — a crowdsourced navigation app for post-outbreak America.
@@ -87,7 +88,16 @@ Example for week 8:
 "DeadRoute has a working prototype deployed to roughly 100 users in the Marietta settlement. The app does basic routing and sighting reports but is buggy. The team is small-startup-scrappy: long hours, duct-tape solutions, everyone wearing multiple hats. Morale is cautiously optimistic."
 
 Example for week 20:
-"DeadRoute now serves around 2,000 users across several settlements. The routing engine is stable after the Great Outage recovery, but tech debt is piling up. The team is feeling the weight of scaling — more support tickets, more edge cases, more pressure from settlement leaders wanting features."`;
+"DeadRoute now serves around 2,000 users across several settlements. The routing engine is stable after the Great Outage recovery, but tech debt is piling up. The team is feeling the weight of scaling — more support tickets, more edge cases, more pressure from settlement leaders wanting features."
+
+## Deduplication
+Before finalizing create_ticket activities, use the search_existing_artifacts tool to check if similar
+tickets already exist. Search for the core topic of each planned ticket.
+- If a very similar ticket exists: change the activity to comment_ticket or transition_ticket on the
+  existing ticket instead of creating a new one, OR pick a different topic entirely.
+- If a loosely related ticket exists: the new ticket is fine, but reference the related key in relatedKeys.
+- Chad is allowed occasional duplicates (it's in character), but not every time — if he already has
+  an open ticket on the exact same topic, redirect his energy to something new.`;
 
 
 export interface PlannerResult {
@@ -103,9 +113,27 @@ const ACTIVITY_TYPES = ["create_ticket","comment_ticket","transition_ticket","cr
 
 function createPlannerToolServer(
   capturedActivities: Activity[],
-  captured: { officeContext: string }
+  captured: { officeContext: string },
+  rag: RagIndex | null
 ) {
   const plannerTools = [
+    tool(
+      "search_existing_artifacts",
+      "Search existing Jira tickets and Confluence pages by topic. Use this before planning create_ticket activities to check if similar work already exists.",
+      {
+        query: z.string().describe("Topic to search for (e.g. 'panic button feature', 'mobile navigation bugs')"),
+        maxResults: z.number().optional().describe("Max results to return (default 5)"),
+      },
+      async (args) => {
+        if (!rag) return { content: [{ type: "text" as const, text: "No indexed artifacts yet." }] };
+        const results = await rag.query(args.query, args.maxResults || 5);
+        if (results.length === 0) return { content: [{ type: "text" as const, text: "No similar artifacts found." }] };
+        const text = results
+          .map((r) => `[score: ${r.score.toFixed(2)}] ${r.text}`)
+          .join("\n\n---\n\n");
+        return { content: [{ type: "text" as const, text }] };
+      }
+    ),
     tool(
       "output_day_plan",
       "Submit the planned activities for the day. Call this once with all activities.",
@@ -158,6 +186,7 @@ export async function planDay(
   narrativeBeats: NarrativeBeat[],
   stateSummary: string,
   rollingSummary: string,
+  rag: RagIndex | null,
   config: Config,
   tokenTracker: TokenTracker
 ): Promise<PlannerResult> {
@@ -173,7 +202,7 @@ export async function planDay(
 
   const capturedActivities: Activity[] = [];
   const captured = { officeContext: "" };
-  const mcpServer = createPlannerToolServer(capturedActivities, captured);
+  const mcpServer = createPlannerToolServer(capturedActivities, captured, rag);
 
   let inputTokens = 0;
   let outputTokens = 0;
@@ -184,7 +213,10 @@ export async function planDay(
       //model: config.plannerModel,
       systemPrompt: SYSTEM_PROMPT,
       mcpServers: { "deadroute-planner-tools": mcpServer },
-      allowedTools: ["mcp__deadroute-planner-tools__output_day_plan"],
+      allowedTools: [
+        "mcp__deadroute-planner-tools__output_day_plan",
+        "mcp__deadroute-planner-tools__search_existing_artifacts",
+      ],
       persistSession: false,
     },
   });

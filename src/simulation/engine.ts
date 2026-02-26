@@ -109,8 +109,12 @@ export async function runSimulation(config: Config, options: EngineOptions = {})
   // Rolling summary: keeps the last N days of summaries for narrative continuity
   const recentDaySummaries = stateManager.getRollingSummaries();
 
-  // Advance to start day if resuming
-  const startFromDay = options.fromDay || 1;
+  // Advance to start day if resuming — use explicit flag, or auto-detect from saved state
+  const savedDayNumber = stateManager.getDayNumber();
+  const startFromDay = options.fromDay || (savedDayNumber ? savedDayNumber + 1 : 1);
+  if (startFromDay > 1) {
+    console.log(chalk.yellow(`Resuming from day ${startFromDay}` + (options.fromDay ? " (--from-day)" : " (auto-detected from state)")));
+  }
   let simulatedDays = 0;
 
   console.log(chalk.dim("─".repeat(60)));
@@ -166,6 +170,7 @@ export async function runSimulation(config: Config, options: EngineOptions = {})
       weekBeats,
       stateSummary,
       rollingSummary,
+      rag,
       config,
       tokenTracker
     );
@@ -275,6 +280,7 @@ export async function runSimulation(config: Config, options: EngineOptions = {})
     }
 
     stateManager.setRollingSummaries(recentDaySummaries);
+    stateManager.setDayNumber(dayNumber);
     const tokenDaySummary = tokenTracker.endDay();
     // Sync API writer state (page/issue ID maps) before persisting
     if (writer instanceof AtlassianWriter) {

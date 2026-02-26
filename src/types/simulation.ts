@@ -67,6 +67,7 @@ export interface TicketState {
 
 export interface SimulationState {
   currentDate: string;
+  dayNumber?: number;
   currentSprint: Sprint | null;
   nextTicketNumber: { DR: number; SUP: number };
   nextConfluenceId: number;

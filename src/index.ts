@@ -63,6 +63,7 @@ program
 
     console.log(chalk.bold("\n📊 DeadRoute Generation Stats\n"));
     console.log(`Current date: ${state.currentDate}`);
+    console.log(`Day number: ${state.dayNumber ?? "unknown (pre-tracking state)"}`);
     console.log(`Sprint: ${state.currentSprint?.name || "none"}`);
     console.log("");
     console.log(chalk.bold("Tickets:"));
