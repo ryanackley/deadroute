@@ -260,6 +260,32 @@ export class AtlassianClient {
     );
   }
 
+  /** Enhanced JQL search (the /search/jql endpoint). */
+  async searchIssues(
+    jql: string,
+    options: { fields?: string[]; maxResults?: number } = {},
+  ): Promise<{ issues: JiraIssueApiResponse[] }> {
+    return this.request<{ issues: JiraIssueApiResponse[] }>(
+      "POST",
+      "/rest/api/3/search/jql",
+      {
+        jql,
+        fields: options.fields || ["summary", "status", "issuetype", "assignee", "reporter", "updated", "description"],
+        maxResults: options.maxResults || 50,
+      },
+    );
+  }
+
+  async getIssueComments(
+    issueKey: string,
+    maxResults = 50,
+  ): Promise<{ comments: { id: string; author: { accountId: string; displayName: string }; body: object; created: string; updated: string }[] }> {
+    return this.request<{ comments: { id: string; author: { accountId: string; displayName: string }; body: object; created: string; updated: string }[] }>(
+      "GET",
+      `/rest/api/3/issue/${encodeURIComponent(issueKey)}/comment?maxResults=${maxResults}&orderBy=-created`,
+    );
+  }
+
   async createIssueLink(
     inwardKey: string,
     outwardKey: string,
@@ -346,6 +372,26 @@ export class AtlassianClient {
       "POST",
       "/wiki/api/v2/footer-comments",
       { pageId, body },
+    );
+  }
+
+  /** CQL search across Confluence content (pages, comments, blog posts). */
+  async searchConfluence(
+    cql: string,
+    limit = 25,
+  ): Promise<{ results: ConfluenceSearchResult[] }> {
+    return this.request<{ results: ConfluenceSearchResult[] }>(
+      "GET",
+      `/wiki/rest/api/search?cql=${encodeURIComponent(cql)}&limit=${limit}`,
+    );
+  }
+
+  async getPageFooterComments(
+    pageId: string,
+  ): Promise<{ results: { id: string; body?: { atlas_doc_format?: { value: string } }; version: { createdAt: string; authorId: string } }[] }> {
+    return this.request<{ results: { id: string; body?: { atlas_doc_format?: { value: string } }; version: { createdAt: string; authorId: string } }[] }>(
+      "GET",
+      `/wiki/api/v2/pages/${encodeURIComponent(pageId)}/footer-comments?body-format=atlas_doc_format&limit=50`,
     );
   }
 
@@ -562,6 +608,21 @@ export class AtlassianClient {
       { issues: issueKeys },
     );
   }
+}
+
+// ---- Confluence search result type ----
+
+export interface ConfluenceSearchResult {
+  content?: {
+    id: string;
+    type: "page" | "comment" | "blogpost" | string;
+    status: string;
+    title: string;
+  };
+  title: string;
+  excerpt?: string;
+  url?: string;
+  lastModified?: string;
 }
 
 // ---- Agile API response types ----

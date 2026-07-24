@@ -12,6 +12,7 @@
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
     "generate": "tsx src/index.ts generate",
+    "factory": "tsx src/index.ts factory",
     "bootstrap": "tsx src/index.ts bootstrap",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit"

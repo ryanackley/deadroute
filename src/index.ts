@@ -54,6 +54,24 @@ program
   });
 
 program
+  .command("factory")
+  .description("Run the software factory — AI personas build real software with you as CEO")
+  .option("--sprints <number>", "Number of sprints to run", parseInt, 1)
+  .option("--no-pause", "Skip the human gates (unattended smoke test)")
+  .action(async (options) => {
+    const config = loadConfig();
+    if (!config.anthropicApiKey && !process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+      console.error(chalk.red("ANTHROPIC_API_KEY is required for factory mode."));
+      process.exit(1);
+    }
+    const { runFactory } = await import("./factory/engine.js");
+    await runFactory(config, {
+      sprints: options.sprints,
+      noPause: options.pause === false,
+    });
+  });
+
+program
   .command("stats")
   .description("Show generation progress and metrics")
   .action(async () => {

@@ -303,6 +303,20 @@ export class AtlassianWriter implements IWriter {
     await client.updateIssue(key, fields);
   }
 
+  /** Set the assignee of an issue (used by factory mode for bug triage). */
+  async assignIssue(
+    key: string,
+    assigneePersona: PersonaId,
+    actingPersona?: PersonaId,
+  ): Promise<void> {
+    const client = this.getClient(actingPersona);
+    const accountId = this.getAccountId(assigneePersona);
+    if (!accountId) {
+      throw new Error(`No Atlassian account for persona "${assigneePersona}"`);
+    }
+    await client.updateIssue(key, { assignee: { id: accountId } });
+  }
+
   async appendComment(
     issueKey: string,
     comment: JiraComment,

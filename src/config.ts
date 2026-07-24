@@ -40,6 +40,24 @@ export interface Config {
     haikuOutput: number;
     embeddingInput: number;
   };
+
+  // Factory mode (real software production)
+  factory: FactoryModeConfig;
+}
+
+export interface FactoryModeConfig {
+  /** Where per-persona git clones live */
+  workspacesDir: string;
+  /** Model for all factory agents (real code needs a strong model) */
+  agentModel: string;
+  /** Max conversation turns per agent session (dev loops need headroom) */
+  maxAgentTurns: number;
+  /** Max review→fix rounds per PR before escalating */
+  maxReviewRounds: number;
+  /** Max test→fix cycles per sprint before escalating to the human */
+  maxFixRounds: number;
+  /** OS-level sandbox for agent Bash (Seatbelt/bubblewrap via Agent SDK) */
+  sandboxEnabled: boolean;
 }
 
 export function loadConfig(overrides: Partial<Config> = {}): Config {
@@ -69,6 +87,15 @@ export function loadConfig(overrides: Partial<Config> = {}): Config {
       haikuInput: 0.80,
       haikuOutput: 4.0,
       embeddingInput: 0.02, // text-embedding-3-small
+    },
+
+    factory: {
+      workspacesDir: resolve(process.env.FACTORY_WORKSPACES_DIR || "./factory-workspaces"),
+      agentModel: process.env.FACTORY_AGENT_MODEL || "claude-sonnet-4-6",
+      maxAgentTurns: parseInt(process.env.FACTORY_MAX_AGENT_TURNS || "100", 10),
+      maxReviewRounds: parseInt(process.env.FACTORY_MAX_REVIEW_ROUNDS || "3", 10),
+      maxFixRounds: parseInt(process.env.FACTORY_MAX_FIX_ROUNDS || "3", 10),
+      sandboxEnabled: process.env.FACTORY_SANDBOX !== "false",
     },
 
     ...overrides,

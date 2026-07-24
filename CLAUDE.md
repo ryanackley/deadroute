@@ -1,8 +1,11 @@
-# DeadRoute — AI-Powered Atlassian Sample Data Generator
+# DeadRoute — AI-Powered Atlassian Sample Data Generator + Software Factory
 
 ## What This Is
 
-DeadRoute generates ~5,000 realistic Jira tickets and ~100-200 Confluence pages for a fictional zombie-apocalypse startup ("Waze for the zombie apocalypse"). It runs a day-by-day simulation across 250 working days where AI agents roleplay as 10 team members, producing in-character artifacts with narrative continuity.
+DeadRoute has two modes:
+
+1. **Simulation** (`npm run generate`) — generates ~5,000 realistic Jira tickets and ~100-200 Confluence pages for a fictional zombie-apocalypse startup ("Waze for the zombie apocalypse"). A day-by-day simulation across 250 working days where AI agents roleplay as 10 team members.
+2. **Factory** (`npm run factory`) — a REAL software factory: 5 AI personas (PM, dev lead, 2 devs, adversarial tester) build actual software in a real GitHub repo, coordinated through real Jira/Confluence, with a human CEO in the loop providing requirements. See "Factory Mode" below.
 
 ## Quick Start
 
@@ -30,6 +33,39 @@ npm run generate -- --days 10        # Simulate only 10 days
 npm run generate -- --from-day 50    # Resume from day 50
 npm run generate -- --dry-run        # Plan only, no AI generation
 ```
+
+## Factory Mode
+
+### The Sprint Flow
+
+1. **Human input** — the CEO (you) writes requirements/business cases in Confluence; tickets and comments anywhere also count.
+2. **PM synthesis** — the PM agent hunts for CEO-authored content across Confluence + Jira (CQL/JQL by account ID) and writes a "Sprint N Brief" page in PROD.
+3. **Planning** — the dev lead reads the brief, creates/assigns sprint tickets with acceptance criteria, starts the sprint.
+4. **Dev loop** — dev_lead/dev1/dev2 each work in their own git clone (`factory-workspaces/<persona>/repo`): branch → code → verify locally → push → PR. Dev lead reviews every PR (max `FACTORY_MAX_REVIEW_ROUNDS` rounds), merges approved ones. Devs maintain the "How to Run & Test" doc in ENG.
+5. **Adversarial testing** — the tester gets a fresh source snapshot with `.git` stripped and ZERO source access (enforced by PreToolUse hooks): it runs the product per the doc, tests completeness against requirements, files Bug tickets.
+6. **Fix cycles** — dev lead triages bugs, devs fix, lead reviews/merges, tester re-tests (max `FACTORY_MAX_FIX_ROUNDS`).
+7. **Sprint review** — PM writes "Sprint N Review" in PROD for the CEO; sprint closes; the loop pauses for your feedback, then repeats.
+
+### Factory Components
+
+| File | Purpose |
+|------|---------|
+| `src/factory/engine.ts` | Sprint state machine (resumable; state in `factory-workspaces/factory-state.json`) |
+| `src/factory/phases/*.ts` | pm-synthesis, planning, dev-loop, testing, sprint-review |
+| `src/factory/safety-hooks.ts` | PreToolUse deny-list: rm -rf, sudo, force push, path escapes, tester source access |
+| `src/factory/workspace.ts` | Per-persona clones (own git identity + PAT remote); tester sandbox prep |
+| `src/factory/ceo-activity.ts` | CEO-authored content digest (pages, tickets, comments) |
+| `src/agents/factory-agent.ts` | Agent runner: role-scoped tools, workspace cwd, hooks, OS sandbox |
+| `src/agents/factory-atlassian-tools.ts` | Immediate-write Atlassian MCP tools (real keys returned) |
+| `src/agents/github-tools.ts` | PR lifecycle MCP tools (create/feedback for devs; review/merge for lead) |
+| `src/personas/factory-profiles.ts` | The 5 AI personas + factory→Atlassian user binding |
+
+### Factory Setup
+
+- Atlassian: reuses `atlassian-config.json` — factory personas act as existing users (pm→sasha, dev_lead→marcus, dev1→cooper, dev2→priya, tester→tk). The CEO is the `ATLASSIAN_ADMIN_EMAIL` account.
+- GitHub: set `GITHUB_OWNER`, `GITHUB_REPO`, and `GITHUB_PAT_DEV_LEAD/DEV1/DEV2` in `.env` (see `.env.example`).
+- Safety: two layers — safety hooks (always on) and the Agent SDK OS sandbox (`FACTORY_SANDBOX=true`, Seatbelt on macOS).
+- Run one sprint: `npm run factory`. Multiple: `npm run factory -- --sprints 3`. Unattended: `--no-pause`.
 
 ## Architecture
 
