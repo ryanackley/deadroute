@@ -1,10 +1,11 @@
 /**
  * Factory persona profiles — the 5 AI team members of the real software factory.
  *
- * These reuse the DeadRoute characters the team already knows, but with
- * production mandates instead of simulation quirks: they do real work on a
- * real repo and a real Jira board. Personality is kept light — enough voice
- * to make artifacts readable, never at the cost of correctness.
+ * Production mandates, light personality: enough voice to make artifacts
+ * readable, never at the cost of correctness. The company's identity and
+ * situation come from company-profile.md (see factory engine), and the
+ * product itself comes from the CEO's requirements — nothing here assumes
+ * a particular product.
  *
  * Each factory persona is bound to an existing provisioned Atlassian user
  * (from atlassian-config.json), so no new Atlassian accounts are needed.

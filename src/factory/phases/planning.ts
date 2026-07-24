@@ -60,6 +60,7 @@ ${briefText || `(Could not load the brief page — read it yourself with get_con
     profile: getFactoryProfile("dev_lead"),
     task,
     context,
+    companyProfile: deps.companyProfile,
     toolContext: toolContextFor(deps),
     mentionMap: deps.mentionMap,
     config: deps.config,

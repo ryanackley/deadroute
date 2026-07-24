@@ -62,6 +62,7 @@ npm run generate -- --dry-run        # Plan only, no AI generation
 
 ### Factory Setup
 
+- Company backstory: `company-profile.md` (auto-created with a generic default on first run — small startup, ~12-month runway, pragmatic culture). Edit it freely; it's injected into every agent's system prompt. Override name/path with `FACTORY_COMPANY_NAME` / `FACTORY_COMPANY_PROFILE`. The zombie story belongs to simulation mode only — the factory's product is whatever the CEO's Confluence requirements say.
 - Atlassian: reuses `atlassian-config.json` — factory personas act as existing users (pm→sasha, dev_lead→marcus, dev1→cooper, dev2→priya, tester→tk). The CEO is the `ATLASSIAN_ADMIN_EMAIL` account.
 - GitHub: set `GITHUB_OWNER`, `GITHUB_REPO`, and `GITHUB_PAT_DEV_LEAD/DEV1/DEV2` in `.env` (see `.env.example`).
 - Safety: two layers — safety hooks (always on) and the Agent SDK OS sandbox (`FACTORY_SANDBOX=true`, Seatbelt on macOS).

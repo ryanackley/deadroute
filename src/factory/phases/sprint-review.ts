@@ -41,6 +41,7 @@ Finish with a 3-5 sentence summary of the sprint (this gets archived as team mem
     profile: getFactoryProfile("pm"),
     task,
     context,
+    companyProfile: deps.companyProfile,
     toolContext: toolContextFor(deps),
     mentionMap: deps.mentionMap,
     config: deps.config,

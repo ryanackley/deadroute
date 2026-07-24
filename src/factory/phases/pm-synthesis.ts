@@ -57,6 +57,7 @@ The dev lead plans the whole sprint from your brief — completeness beats speed
     profile: getFactoryProfile("pm"),
     task,
     context,
+    companyProfile: deps.companyProfile,
     toolContext: toolContextFor(deps),
     mentionMap: deps.mentionMap,
     config: deps.config,

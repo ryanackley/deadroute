@@ -18,6 +18,8 @@ import type { FactoryToolContext } from "../agents/factory-atlassian-tools.js";
 
 export interface FactoryDeps {
   config: Config;
+  /** Company profile markdown injected into every agent's system prompt */
+  companyProfile: string;
   atlassianConfig: AtlassianConfig;
   github: GitHubConfig;
   writer: AtlassianWriter;

@@ -42,7 +42,7 @@ export interface FactoryOptions {
 }
 
 export async function runFactory(config: Config, options: FactoryOptions = {}): Promise<void> {
-  console.log(chalk.bold("\n🏭 DeadRoute Software Factory\n"));
+  console.log(chalk.bold(`\n🏭 ${config.factory.companyName} Software Factory\n`));
 
   const deps = await initFactory(config);
   const totalSprints = options.sprints ?? 1;
@@ -142,7 +142,33 @@ export async function runFactory(config: Config, options: FactoryOptions = {}): 
 
 // ─── Initialization ──────────────────────────────────────────────────
 
+const DEFAULT_COMPANY_PROFILE = `# Company Profile
+
+We are a small software startup. The company is real and the stakes are real:
+
+- Team: a human CEO plus a five-person product team (PM, dev lead, two developers, QA).
+- Runway: roughly 12 months. Every sprint must move the product toward something users want.
+- Stage: early. Speed of learning beats polish, but broken software teaches nothing — it has to work.
+- Culture: pragmatic engineering. Boring, reliable technology; small scopes shipped completely beat big scopes shipped half-done.
+
+The product we are building is defined by the CEO's requirements in Confluence — that is the source of truth for WHAT we build. This profile is who we ARE.
+`;
+
 async function initFactory(config: Config): Promise<FactoryDeps> {
+  // Company profile — editable markdown; write the default on first run
+  let companyProfile: string;
+  try {
+    companyProfile = await readFile(config.factory.companyProfilePath, "utf-8");
+  } catch {
+    companyProfile = DEFAULT_COMPANY_PROFILE;
+    try {
+      await writeFile(config.factory.companyProfilePath, DEFAULT_COMPANY_PROFILE);
+      console.log(chalk.dim(`  Created default company profile: ${config.factory.companyProfilePath} (edit it!)`));
+    } catch {
+      // read-only location — use the in-memory default
+    }
+  }
+
   // Atlassian config + validation
   let atlassianConfig;
   try {
@@ -230,6 +256,7 @@ async function initFactory(config: Config): Promise<FactoryDeps> {
 
   return {
     config,
+    companyProfile,
     atlassianConfig,
     github,
     writer,

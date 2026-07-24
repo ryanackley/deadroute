@@ -122,6 +122,8 @@ export interface FactoryAgentRun {
   task: string;
   /** Assembled context (sprint brief, tickets, digests, etc.) */
   context: string;
+  /** Company profile markdown for the system prompt */
+  companyProfile: string;
   /** Atlassian tool wiring (log is created per-run) */
   toolContext: Omit<FactoryToolContext, "log" | "persona">;
   /** GitHub client authenticated as this persona (dev personas only) */
@@ -167,9 +169,12 @@ ${
 }`;
   }
 
-  return `You are ${profile.displayName}, ${profile.role} at DeadRoute — a real software team building "Waze for the zombie apocalypse."
+  return `You are ${profile.displayName}, ${profile.role} at ${run.config.factory.companyName}.
 
 This is NOT a simulation. Your Jira tickets, Confluence pages, code, and pull requests are real work product on real systems. Quality matters.
+
+## The Company
+${run.companyProfile}
 
 ## Your Personality
 ${profile.personality}

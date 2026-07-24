@@ -46,6 +46,10 @@ export interface Config {
 }
 
 export interface FactoryModeConfig {
+  /** Company name used in agent identity and console output */
+  companyName: string;
+  /** Path to the editable company profile markdown (created with a generic default if missing) */
+  companyProfilePath: string;
   /** Where per-persona git clones live */
   workspacesDir: string;
   /** Model for all factory agents (real code needs a strong model) */
@@ -90,6 +94,8 @@ export function loadConfig(overrides: Partial<Config> = {}): Config {
     },
 
     factory: {
+      companyName: process.env.FACTORY_COMPANY_NAME || "DeadRoute",
+      companyProfilePath: resolve(process.env.FACTORY_COMPANY_PROFILE || "./company-profile.md"),
       workspacesDir: resolve(process.env.FACTORY_WORKSPACES_DIR || "./factory-workspaces"),
       agentModel: process.env.FACTORY_AGENT_MODEL || "claude-sonnet-4-6",
       maxAgentTurns: parseInt(process.env.FACTORY_MAX_AGENT_TURNS || "100", 10),
